@@ -1,0 +1,52 @@
+{
+  "Warchief": {
+    "name": "High Marshal",
+    "png": "Warchief.png",
+    "tga": "Warchief.tga"
+  },
+  "HighOverlord": {
+    "name": "Field Marshal",
+    "png": "HighOverlord.png",
+    "tga": "HighOverlord.tga"
+  },
+  "BloodGuard": {
+    "name": "Marshal \u00b7 HR",
+    "png": "BloodGuard.png",
+    "tga": "BloodGuard.tga"
+  },
+  "WarStrategist": {
+    "name": "Commander \u00b7 Tactics",
+    "png": "WarStrategist.png",
+    "tga": "WarStrategist.tga"
+  },
+  "Champion": {
+    "name": "Captain",
+    "png": "Champion.png",
+    "tga": "Champion.tga"
+  },
+  "Legionnaire": {
+    "name": "Lieutenant",
+    "png": "Legionnaire.png",
+    "tga": "Legionnaire.tga"
+  },
+  "StoneGuard": {
+    "name": "Sergeant",
+    "png": "StoneGuard.png",
+    "tga": "StoneGuard.tga"
+  },
+  "Grunt": {
+    "name": "Corporal",
+    "png": "Grunt.png",
+    "tga": "Grunt.tga"
+  },
+  "Scout": {
+    "name": "Scout",
+    "png": "Scout.png",
+    "tga": "Scout.tga"
+  },
+  "Initiate": {
+    "name": "Recruit",
+    "png": "Initiate.png",
+    "tga": "Initiate.tga"
+  }
+}

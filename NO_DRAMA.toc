@@ -1,0 +1,16 @@
+## Interface: 16001
+## Title: ZERO DRAMA | Guild Hall
+## Notes: Horde guild hall, roster and live guild map positions for WoW Forever.
+## Author: ZERO DRAMA
+## Version: 0.18.0-beta
+## OptionalDeps: OpenMap
+## SavedVariables: NoDramaDB
+Core.lua
+Groups.lua
+Needs.lua
+NeedsMail.lua
+Army.lua
+Tracking.lua
+LiveMap.lua
+UI.lua
+
