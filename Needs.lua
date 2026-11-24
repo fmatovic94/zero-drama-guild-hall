@@ -102,7 +102,7 @@ local function announce(req)
  -- Separate message so 0.17.0 clients, which require exactly six N2 fields, keep working.
  for i,it in ipairs(req.items)do
   local name=GetItemInfo and GetItemInfo(it.id)or it.name
-  if name then messages[#messages+1]=N.Pack("N3",req.id,i,N.Safe(name):sub(1,60))end
+  if name then messages[#messages+1]=N.Pack("N3",req.id,i,N.Clip(N.Safe(name),60))end
  end
  if #N.queue+#messages>100 then return false end
  for _,m in ipairs(messages)do if #m>240 then return false end end
@@ -121,7 +121,7 @@ function R.Close(id)
 end
 function R.Post(kind,prof,items,goldAmount,reason)
  local s=store();if not s then return false,"Join a guild to post a request."end
- reason=N.Safe(reason or""):gsub("^%s+",""):gsub("%s+$",""):sub(1,80)
+ reason=N.Clip(N.Safe(reason or""):gsub("^%s+",""):gsub("%s+$",""),80)
  local clean={}
  if kind=="mats"then
   if not isProfession[prof]then return false,"Choose the profession you are leveling."end
@@ -219,7 +219,7 @@ function R.Receive(op,p,sender)
   elseif kind=="gold"then if goldAmount<1 or count~=0 then return end;prof=""
   else return end
   local pend=pendingFor(p[2],sender);if not pend then return end
-  pend.header={kind=kind,prof=prof,gold=goldAmount,given=math.min(given,goldAmount),reason=N.Safe(p[7]):sub(1,80),count=count,stamp=stamp}
+  pend.header={kind=kind,prof=prof,gold=goldAmount,given=math.min(given,goldAmount),reason=N.Clip(N.Safe(p[7]),80),count=count,stamp=stamp}
   publish(p[2])
  elseif op=="N2"and #p==6 and ownedID(p[2],sender)then
   local index,id,count,given=number(p[3],1,MAX_ITEMS),number(p[4],1,10000000),number(p[5],1,MAX_COUNT),number(p[6],0,MAX_COUNT)
@@ -228,7 +228,7 @@ function R.Receive(op,p,sender)
   pend.items[index]={id=id,count=count,given=math.min(given,count)}
   publish(p[2])
  elseif op=="N3"and #p==4 and ownedID(p[2],sender)then
-  local index,name=number(p[3],1,MAX_ITEMS),N.Safe(p[4]):sub(1,60)
+  local index,name=number(p[3],1,MAX_ITEMS),N.Clip(N.Safe(p[4]),60)
   local req=s[p[2]];local it=req and req.items[index]
   if not it or name==""then return end
   it.name=name

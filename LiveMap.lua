@@ -103,7 +103,7 @@ function M.Project(record,shownID,isStitched)
 end
 local function hide()
  for _,pin in ipairs(M.pins)do pin:Hide();pin.record=nil end
- for _,pin in ipairs(M.callPins or{})do pin:Hide();pin.request=nil end
+ for _,pin in ipairs(M.callPins or{})do pin:Hide();pin.request=nil;pin.live=nil end
  M.visibleCalls=0
  if M.overlay then M.overlay:Hide()end
  lastGeometry=nil;M.visibleCount=0
@@ -192,11 +192,20 @@ local function callTooltip(self)
  local caller=N.members and N.members[r.caller]
  GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText("Request Army!",1,0.35,0.1)
  GameTooltip:AddLine(N.Safe(r.caller:match("^[^-]+")or r.caller)..(caller and"  (level "..tostring(caller.level or"?").." "..N.Safe(caller.class)..")"or""),1,0.82,0)
- GameTooltip:AddLine(N.Safe(r.zone)..string.format("  %.1f, %.1f",r.x*100,r.y*100),1,1,1)
+ local spot=self.live or r
+ GameTooltip:AddLine(N.Safe(self.live and self.live.zone or r.zone)..string.format("  %.1f, %.1f",spot.x*100,spot.y*100),1,1,1)
  local now=GetServerTime and GetServerTime()or time()
  local minutes=finite(r.created)and math.floor((now-r.created)/60)or nil
  if minutes then GameTooltip:AddLine(minutes<1 and"Called just now"or"Called "..minutes.." min ago",0.6,0.9,0.6)end
- GameTooltip:AddLine("Static rally point at the time of the call.",0.8,0.8,0.8,true)
+ local _,answeredAt=N.Army and N.Army.Response and N.Army.Response(r)
+ if self.live then
+  local left=finite(answeredAt)and math.max(1,math.ceil((N.Army.FOLLOW_SECONDS-(now-answeredAt))/60))or nil
+  GameTooltip:AddLine("You're on your way: following the caller's live position"..(left and" for "..left.." more min."or"."),0.4,1,0.4,true)
+ elseif N.Army and N.Army.IsFollowing and N.Army.IsFollowing(r)then
+  GameTooltip:AddLine("You're on your way. The caller isn't sharing a live position, so this is the rally point.",0.4,1,0.4,true)
+ else
+  GameTooltip:AddLine("Static rally point at the time of the call.",0.8,0.8,0.8,true)
+ end
  GameTooltip:AddLine("Active until the requester, an officer or GM cancels.",1,0.7,0.35,true)
  GameTooltip:AddLine("Layer and phase are not verified.",0.65,0.65,0.65,true)
  GameTooltip:Show()
@@ -218,7 +227,7 @@ local function callPinAt(index,parent)
  end)
  pin:SetScript("OnEnter",callTooltip)
  pin:SetScript("OnLeave",function()if GameTooltip then GameTooltip:Hide()end end)
- pin:SetScript("OnClick",function(self)local r=self.request;if r and N.Army and N.Army.Open then N.Army.Open(r.mapID,r.x,r.y)end end)
+ pin:SetScript("OnClick",function(self)local spot=self.live or self.request;if spot and N.Army and N.Army.Open then N.Army.Open(spot.mapID,spot.x,spot.y)end end)
  return pin
 end
 local function place(g,x,y)
@@ -236,16 +245,19 @@ function M.Refresh(g)
  if #records==0 and #requests==0 then hide();return end
  local parent=overlay(g);local used=0
  local calls=0
+ local army=N.Army or{}
  for _,r in ipairs(requests)do
-  local x,y=M.Project(r,g.mapID,g.stitched)
+  local live=not(army.IsMuted and army.IsMuted(r))and army.LivePosition and army.LivePosition(r)or nil
+  if live and not valid(live)then live=nil end
+  local x,y;if not(army.IsMuted and army.IsMuted(r))then x,y=M.Project(live or r,g.mapID,g.stitched)end
   local px,py;if x then px,py=place(g,x,y)end
   if px then
-   calls=calls+1;local pin=callPinAt(calls,parent);pin.request=r
+   calls=calls+1;local pin=callPinAt(calls,parent);pin.request=r;pin.live=live
    pin:SetFrameLevel(parent:GetFrameLevel()+10)
    pin:ClearAllPoints();pin:SetPoint("CENTER",parent,"TOPLEFT",px,-py);pin:Show()
   end
  end
- for index=calls+1,#M.callPins do M.callPins[index]:Hide();M.callPins[index].request=nil end
+ for index=calls+1,#M.callPins do M.callPins[index]:Hide();M.callPins[index].request=nil;M.callPins[index].live=nil end
  M.visibleCalls=calls
  for _,record in ipairs(records)do
   if valid(record)then

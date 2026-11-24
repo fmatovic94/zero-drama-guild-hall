@@ -12,6 +12,13 @@ local function requestID(id)
  return caller,created,sequence
 end
 local function newer(a,b)return not b or a.created>b.created or(a.created==b.created and a.sequence>b.sequence)end
+A.FOLLOW_SECONDS=1800
+-- Answers are this character's own choice and are never broadcast as addon data.
+local function responses()
+ if not N.db then return end
+ N.db.armyResponses=type(N.db.armyResponses)=="table"and N.db.armyResponses or{}
+ return N.db.armyResponses
+end
 local function changed()
  A.requestDrawKey=nil
  if type(A.OnRequestsChanged)=="function"then A.OnRequestsChanged()
@@ -52,6 +59,7 @@ function A.EnsureState()
    else callers[caller]=r end
   end
  end
+ local answered=responses();for id in pairs(answered)do if not N.db.armyRequests[id]then answered[id]=nil end end
  A.syncAt=clock()+3;A.publishAt=clock()+60+(#N.Me()%15);A.scopeChanged=true
  return N.db
 end
@@ -119,7 +127,7 @@ function A.RequestHelp()
  if not worked or not mapID then N.Notify("Your exact map position is unavailable. No request was sent.");return false end
  N.db.armySequence=N.db.armySequence+1
  local id=caller..":"..now..":"..N.db.armySequence
- local r={id=id,caller=caller,mapID=mapID,x=x,y=y,zone=N.Safe(info.name):sub(1,60),created=now,sequence=N.db.armySequence}
+ local r={id=id,caller=caller,mapID=mapID,x=x,y=y,zone=N.Clip(N.Safe(info.name),60),created=now,sequence=N.db.armySequence}
  local cancelled=A.cancelByCaller[caller]
  if cancelled and not newer(r,cancelled)then N.Notify("Your request clock is behind the last cancellation. Try again after the clock updates.");return false end
  local messages={}
@@ -135,6 +143,35 @@ function A.CancelHelp(id)
  if not r or not A.CanCancel(r)or not maySend(false)then return false end
  if not N.Send("HC",id)then N.Notify("The addon message queue is full. The request is still active.");return false end
  recordCancel(id,N.Me());changed();return true
+end
+function A.Response(r)
+ local list=r and responses();local entry=list and list[r.id]
+ if type(entry)~="table"or(entry.choice~="coming"and entry.choice~="busy")or not finite(entry.at)then return end
+ return entry.choice,entry.at
+end
+function A.IsFollowing(r)
+ local choice,at=A.Response(r)
+ return choice=="coming"and clock()-at<A.FOLLOW_SECONDS
+end
+function A.IsMuted(r)return(A.Response(r))=="busy"end
+function A.NeedsAnswer(r)return r~=nil and r.caller~=N.Me()and A.Response(r)==nil end
+local function short(name)local safe=N.Safe(name);return safe:match("^[^-]+")or safe end
+function A.ComingMessage(r)
+ return N.Clip(string.format("[ZERO DRAMA auto-message] On my way to help %s in %s (%.1f, %.1f)! For the Horde!",short(r.caller),N.Safe(r.zone),(r.x or 0)*100,(r.y or 0)*100),255)
+end
+function A.LivePosition(r)
+ if not A.IsFollowing(r)or not N.Tracking or type(N.Tracking.GetPositions)~="function"then return end
+ for _,p in ipairs(N.Tracking.GetPositions())do if p.name==r.caller then return p end end
+end
+function A.Respond(id,choice)
+ if not A.EnsureState()or(choice~="coming"and choice~="busy")then return false end
+ local r=N.db.armyRequests[id];if not r or r.caller==N.Me()then return false end
+ local announce=choice=="coming"and not A.IsFollowing(r)
+ responses()[id]={choice=choice,at=clock()}
+ if announce and type(SendChatMessage)=="function"and IsInGuild and IsInGuild()then pcall(SendChatMessage,A.ComingMessage(r),"GUILD")end
+ if choice=="coming"then N.Notify("On your way to "..short(r.caller)..". Their live position is marked on your map for 30 minutes.")
+ else N.Notify("You won't get alerts for "..short(r.caller).."'s call. You can still answer it on the Army page.")end
+ changed();return true
 end
 function A.Sync()
  if not A.EnsureState()or not maySend(true)then return false end

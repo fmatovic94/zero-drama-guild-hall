@@ -248,7 +248,7 @@ function G.Post(key,minLevel,maxLevel,size,role,note)
  local me=N.Me()
  for id,post in pairs(G.posts)do if post.leader==me then G.Close(id)end end
  local id=me..":"..time()
- note=N.Safe(note or""):gsub("^%s+",""):gsub("%s+$",""):sub(1,80)
+ note=N.Clip(N.Safe(note or""):gsub("^%s+",""):gsub("%s+$",""),80)
  if not N.Send("D1",id,key,minLevel,maxLevel,size,role,myClass()or"",note)then return false,"The note is too long or the addon message queue is full."end
  G.posts[id]={id=id,leader=me,key=key,min=minLevel,max=maxLevel,size=size,role=role,class=myClass(),note=note,stamp=time(),responses={}}
  return true
@@ -274,7 +274,7 @@ function G.Receive(op,p,sender)
   if id:sub(1,#sender+1)~=sender..":"or not byKey[key]or not minLevel or not maxLevel or not size or minLevel>maxLevel then return end
   if G.posts[id]then return end
   for other,post in pairs(G.posts)do if post.leader==sender then G.posts[other]=nil;G.Dismiss(other)end end
-  local post={id=id,leader=sender,key=key,min=minLevel,max=maxLevel,size=math.max(2,math.min(40,size)),role=roleByKey[p[7]]and p[7]or"D",class=classToken(p[8]),note=N.Safe(p[9]):sub(1,80),stamp=time(),responses={}}
+  local post={id=id,leader=sender,key=key,min=minLevel,max=maxLevel,size=math.max(2,math.min(40,size)),role=roleByKey[p[7]]and p[7]or"D",class=classToken(p[8]),note=N.Clip(N.Safe(p[9]),80),stamp=time(),responses={}}
   G.posts[id]=post
   if sender~=N.Me()and G.Eligible(post)then G.Prompt(post)end
  elseif op=="DJ"and #p==5 then

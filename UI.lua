@@ -61,6 +61,32 @@ function N.ResetUIPositions()
  for key in pairs(movableFrames)do store[key]=nil end
  N.RestoreUIPositions(true);N.Notify("Window, Army button, and alert positions reset.")
 end
+-- SetFont with a single file drops the game font's Cyrillic, Korean and Chinese
+-- members, so those names rendered as boxes. A font family keeps every alphabet.
+local fontFamilies={}
+function N.SetFont(fs,size,flags)
+ flags=flags or""
+ local key=size.."|"..flags
+ local family=fontFamilies[key]
+ if family==nil then
+  family=false
+  if type(CreateFontFamily)=="function"then
+   local function member(alphabet,file,height)return{alphabet=alphabet,file=file,height=height,flags=flags}end
+   local ok,made=pcall(CreateFontFamily,"NoDramaFont"..size..flags:gsub("%W",""),{
+    member("roman","Fonts\\FRIZQT__.TTF",size),member("korean","Fonts\\2002.TTF",size+1),
+    member("simplifiedchinese","Fonts\\ARKai_T.ttf",size+2),member("traditionalchinese","Fonts\\blei00d.TTF",size+2),
+    member("russian","Fonts\\FRIZQT___CYR.TTF",size)})
+   if ok and made then family=made end
+  end
+  fontFamilies[key]=family
+ end
+ if not family then fs:SetFont("Fonts\\FRIZQT___CYR.TTF",size,flags);return end
+ local r,g,b,a=fs:GetTextColor();local sx,sy=fs:GetShadowOffset();local sr,sg,sb,sa=fs:GetShadowColor()
+ fs:SetFontObject(family)
+ if r then fs:SetTextColor(r,g,b,a)end
+ if sx then fs:SetShadowOffset(sx,sy)end
+ if sr then fs:SetShadowColor(sr,sg,sb,sa)end
+end
 local function label(parent,font,x,y,w)
  local t=parent:CreateFontString(nil,"OVERLAY",font or "GameFontHighlightSmall")
  t:SetPoint("TOPLEFT",x,y); t:SetWidth(w); t:SetJustifyH("LEFT"); t:SetJustifyV("TOP")
@@ -158,7 +184,7 @@ local detailScroll=CreateFrame("ScrollFrame",nil,window)
 detailScroll:SetPoint("TOPLEFT",layout.detailX+12,-115); detailScroll:SetSize(layout.detailWidth,353)
 local detailBody=CreateFrame("Frame",nil,detailScroll); detailBody:SetSize(layout.detailWidth,353); detailScroll:SetScrollChild(detailBody)
 local detail=label(detailBody,"GameFontHighlightSmall",0,0,layout.detailWidth)
-detail:SetWordWrap(true);detail:SetFont("Fonts\\FRIZQT__.TTF",11,"");detail:SetSpacing(4);detail:SetTextColor(0.20,0.13,0.07)
+detail:SetWordWrap(true);N.SetFont(detail,11);detail:SetSpacing(4);detail:SetTextColor(0.20,0.13,0.07)
 detailScroll:EnableMouseWheel(true)
 detailScroll:SetScript("OnMouseWheel",function(self,delta)
  local value=self:GetVerticalScroll() or 0
@@ -288,7 +314,7 @@ end
 local drafts={GUILD="",OFFICER=""}; local composerChannel; local draftScope
 local composer=inset(window,layout.chatX,-442,layout.chatWidth,64)
 local chatEdit=CreateFrame("EditBox","NoDramaChatInput",window,"InputBoxTemplate"); N.chatInput=chatEdit
-chatEdit:SetPoint("TOPLEFT",layout.chatX+13,-451); chatEdit:SetSize(layout.chatWidth-100,26); chatEdit:SetAutoFocus(false); chatEdit:SetMaxBytes(240); chatEdit:SetFont("Fonts\\FRIZQT__.TTF",12,"")
+chatEdit:SetPoint("TOPLEFT",layout.chatX+13,-451); chatEdit:SetSize(layout.chatWidth-100,26); chatEdit:SetAutoFocus(false); chatEdit:SetMaxBytes(240); N.SetFont(chatEdit,12)
 local placeholder=label(window,"GameFontDisableSmall",layout.chatX+17,-459,layout.chatWidth-118); placeholder:SetText("Message guild...")
 local composerHint=label(window,"GameFontDisableSmall",layout.chatX+13,-484,layout.chatWidth-75)
 local composerCount=label(window,"GameFontDisableSmall",layout.chatX+layout.chatWidth-57,-484,40);composerCount:SetJustifyH("RIGHT");composerCount:SetText("0/240")
@@ -298,7 +324,7 @@ local function sendChat()
  if channel=="OFFICER" and not N.IsOfficer(N.Me()) then N.Notify("Officer chat access is required."); return false end
  local value=plain(chatEdit:GetText() or ""):gsub("^%s+",""):gsub("%s+$","")
  if value=="" then return false end
- SendChatMessage(value:sub(1,240),channel)
+ SendChatMessage(N.Clip(value,240),channel)
  drafts[channel]=""; chatEdit:SetText(""); return true
 end
 N.SendChatFromWindow=sendChat
@@ -332,13 +358,13 @@ for i,room in ipairs({{page="Guild chat",title="Guild chat",hint="All guild memb
  b:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=8,insets={left=3,right=3,top=3,bottom=3}})
  b.icon=b:CreateTexture(nil,"ARTWORK");b.icon:SetTexture("Interface\\AddOns\\NO_DRAMA\\Media\\Badges\\"..room.badge..".tga");b.icon:SetSize(28,28);b.icon:SetPoint("TOPLEFT",8,-12)
  b.title=label(b,"GameFontNormalSmall",43,-12,125);b.title:SetText(room.title)
- b.hint=label(b,"GameFontHighlightSmall",43,-29,125);b.hint:SetFont("Fonts\\FRIZQT__.TTF",9,"");b.hint:SetText(room.hint)
+ b.hint=label(b,"GameFontHighlightSmall",43,-29,125);N.SetFont(b.hint,9);b.hint:SetText(room.hint)
  b:SetScript("OnClick",function()selectPage(room.page)end);chatRooms[room.page]=b
 end
 N.chatRooms=chatRooms;N.chatRail=chatRail;N.chatHeader=chatHeader
 local chatRule=chatRail:CreateTexture(nil,"ARTWORK");chatRule:SetTexture("Interface\\Buttons\\WHITE8X8");chatRule:SetSize(166,1);chatRule:SetPoint("TOPLEFT",12,-158);chatRule:SetVertexColor(0.42,0.31,0.17,0.6)
 local noticeHeading=label(chatRail,"GameFontNormalSmall",12,-173,166);noticeHeading:SetText("GUILD NOTICE")
-local chatNotice=label(chatRail,"GameFontHighlightSmall",12,-193,166);chatNotice:SetFont("Fonts\\FRIZQT__.TTF",11,"");chatNotice:SetSpacing(3);chatNotice:SetHeight(177);chatNotice:SetWordWrap(true);chatNotice:SetMaxLines(12);chatNotice:SetTextColor(0.76,0.74,0.66)
+local chatNotice=label(chatRail,"GameFontHighlightSmall",12,-193,166);N.SetFont(chatNotice,11);chatNotice:SetSpacing(3);chatNotice:SetHeight(177);chatNotice:SetWordWrap(true);chatNotice:SetMaxLines(12);chatNotice:SetTextColor(0.76,0.74,0.66)
 local chatHistoryHint=label(chatRail,"GameFontDisableSmall",12,-375,166);chatHistoryHint:SetText("Protected chat text is not saved.")
 local railRoster=button(chatRail,"Members & ranks",8,-397,174,function()selectPage("Roster")end)
 local chatLatest=button(window,"Jump to latest",layout.chatX+layout.chatWidth-157,-411,138,function()
@@ -358,7 +384,7 @@ scroll:SetScript("OnVerticalScroll",function(self,value)
 end)
 local rosterTools=CreateFrame("Frame",nil,window);rosterTools:SetPoint("TOPLEFT",12,-77);rosterTools:SetSize(540,24)
 local rosterSearch=CreateFrame("EditBox","NoDramaRosterSearch",rosterTools,"InputBoxTemplate");N.rosterSearch=rosterSearch
-rosterSearch:SetPoint("TOPLEFT",9,0);rosterSearch:SetSize(390,22);rosterSearch:SetAutoFocus(false);rosterSearch:SetMaxBytes(80);rosterSearch:SetFont("Fonts\\FRIZQT__.TTF",10,"")
+rosterSearch:SetPoint("TOPLEFT",9,0);rosterSearch:SetSize(390,22);rosterSearch:SetAutoFocus(false);rosterSearch:SetMaxBytes(80);N.SetFont(rosterSearch,10)
 local searchHint=label(rosterTools,"GameFontDisableSmall",13,-7,378);searchHint:SetText("Search name, class, rank or area...")
 local onlineOnly=CreateFrame("CheckButton","NoDramaRosterOnlineOnly",rosterTools,"UICheckButtonTemplate");onlineOnly:SetPoint("TOPLEFT",407,2);onlineOnly:SetSize(24,24);onlineOnly:SetChecked(false)
 local onlineCaption=label(rosterTools,"GameFontHighlightSmall",433,-6,90);onlineCaption:SetText("Online only")
@@ -380,7 +406,7 @@ censusToggle:SetScript("OnClick",function(self)if N.Army and N.Army.SetCensusEna
 censusToggle:SetScript("OnEnter",function(self)tooltip(self,"Region player counts",{"Show one player-count marker per guild zone on the map.","Off by default. Requires map pins to be enabled.","This does not change live member locations or Army rally calls."})end)
 censusToggle:SetScript("OnLeave",function()GameTooltip:Hide()end)
 local rosterHeader=CreateFrame("Frame",nil,window);rosterHeader:SetPoint("TOPLEFT",layout.panelX+layout.contentInset,-105);rosterHeader:SetSize(808,24)
-local classStrip=label(window,"GameFontHighlightSmall",layout.panelX+layout.contentInset+4,-365,layout.fullWidth-20);classStrip:SetFont("Fonts\\FRIZQT__.TTF",10,"");classStrip:SetWordWrap(false);classStrip:Hide()
+local classStrip=label(window,"GameFontHighlightSmall",layout.panelX+layout.contentInset+4,-365,layout.fullWidth-20);N.SetFont(classStrip,10);classStrip:SetWordWrap(false);classStrip:Hide()
 -- N.Render is at Lua 5.1's 60-upvalue limit; it must reach this through N.
 N.classStrip=classStrip
 local rosterColumns={
@@ -538,34 +564,104 @@ movable(hud,"armyButton",{point="BOTTOMRIGHT",relativePoint="BOTTOMRIGHT",x=-36,
 hud:SetScript("OnMouseDown",function(self)self.ndDragged=false end)
 hud:SetScript("OnEnter",function(self)tooltip(self,"Request Army!",{"Ask the guild for help against the Alliance.","Shares a rally point at your current location.","Stays active until you, an officer, or the GM cancels.","Drag to move. Position is saved for this character.","/ndreset restores the default positions."})end)
 hud:SetScript("OnLeave",function()GameTooltip:Hide()end)
-local armyAlert=nativeFrame("Frame","NoDramaArmyAlert",UIParent,"BackdropTemplate",nil);N.armyAlert=armyAlert
-armyAlert:SetSize(426,94);armyAlert:SetFrameStrata("HIGH");armyAlert:SetFrameLevel(200)
-local alertHandle=CreateFrame("Frame",nil,armyAlert);alertHandle:SetPoint("TOPLEFT",6,-6);alertHandle:SetSize(414,48);alertHandle:SetFrameLevel(armyAlert:GetFrameLevel()+1)
-N.armyAlertDragHandle=alertHandle
-movable(armyAlert,"armyAlert",{point="TOP",relativePoint="TOP",x=0,y=-92},alertHandle)
-alertHandle:SetScript("OnEnter",function(self)tooltip(self,"Army rally alert",{"Drag this heading to move the alert.","Your position is saved for this character.","/ndreset restores the default positions."})end)
-alertHandle:SetScript("OnLeave",function()GameTooltip:Hide()end)
-armyAlert:SetBackdrop({bgFile="Interface\\DialogFrame\\UI-DialogBox-Background",edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border",tile=true,tileSize=32,edgeSize=24,insets={left=5,right=5,top=5,bottom=5}})
-armyAlert:SetBackdropColor(0.22,0.025,0.015,0.98);armyAlert:SetBackdropBorderColor(0.95,0.5,0.14,1);armyAlert:Hide()
-local flash=armyAlert:CreateTexture(nil,"ARTWORK");flash:SetTexture(requestIcon);flash:SetPoint("TOPLEFT",12,-17);flash:SetSize(34,34)
-local alertHeading=label(armyAlert,"GameFontNormal",55,-13,352);alertHeading:SetText("REQUEST ARMY!")
-local alertWhere=label(armyAlert,"GameFontHighlightSmall",55,-32,352)
-local viewAlert=button(armyAlert,"Show Map",55,-62,108,function()if showingCall then N.Army.Open(showingCall.mapID,showingCall.x,showingCall.y)end end)
-local nextAlert=button(armyAlert,"Next Call",173,-62,108,function()requestIndex=requestIndex+1;if N.UpdateArmyAlert then N.UpdateArmyAlert()end end)
-local endAlert=button(armyAlert,"Cancel Request",291,-62,120,function()askCancel(showingCall)end)
-local alertElapsed=0
-armyAlert:SetScript("OnUpdate",function(_,dt)
- alertElapsed=alertElapsed+dt;local alpha=0.58+0.42*(math.sin(alertElapsed*3)+1)/2;flash:SetAlpha(alpha);armyAlert:SetBackdropBorderColor(1,0.30+alpha*0.18,0.08,1)
-end)
-function N.UpdateArmyAlert()
- N.RestoreUIPositions()
- local calls=activeCalls();hud:SetShown(N.db~=nil);armyAlert:SetShown(#calls>0)
- if #calls==0 then showingCall=nil;return end
- if requestIndex>#calls then requestIndex=1 end
- showingCall=calls[requestIndex];local r=showingCall
- alertHeading:SetText("REQUEST ARMY!"..(#calls>1 and" - "..requestIndex.."/"..#calls.." calls"or""))
- alertWhere:SetText(plain(r.caller).." needs help\n"..plain(r.zone).." ("..coords(r)..") - Until cancelled")
- endAlert:SetShown(N.Army.CanCancel and N.Army.CanCancel(r)or false);nextAlert:SetShown(#calls>1)
+do
+ local W,H=440,146
+ local preview;local seen={}
+ local alert=nativeFrame("Frame","NoDramaArmyAlert",UIParent,"BackdropTemplate",nil);N.armyAlert=alert
+ alert:SetSize(W,H);alert:SetFrameStrata("HIGH");alert:SetFrameLevel(200);alert:Hide()
+ alert:SetBackdrop({bgFile="Interface\\DialogFrame\\UI-DialogBox-Background",edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border",tile=true,tileSize=32,edgeSize=24,insets={left=5,right=5,top=5,bottom=5}})
+ alert:SetBackdropColor(0.16,0.02,0.012,0.98);alert:SetBackdropBorderColor(0.95,0.5,0.14,1)
+ local banner=alert:CreateTexture(nil,"BORDER");banner:SetTexture("Interface\\FrameGeneral\\UI-Background-Rock")
+ banner:SetVertexColor(0.62,0.1,0.04,0.95);banner:SetPoint("TOPLEFT",7,-7);banner:SetPoint("TOPRIGHT",-7,-7);banner:SetHeight(30)
+ local rule=alert:CreateTexture(nil,"ARTWORK");rule:SetTexture("Interface\\Buttons\\WHITE8X8");rule:SetVertexColor(1,0.74,0.25,0.55)
+ rule:SetPoint("TOPLEFT",banner,"BOTTOMLEFT",0,0);rule:SetPoint("TOPRIGHT",banner,"BOTTOMRIGHT",0,0);rule:SetHeight(1)
+ local handle=CreateFrame("Frame",nil,alert);handle:SetPoint("TOPLEFT",7,-7);handle:SetSize(W-70,30);handle:SetFrameLevel(alert:GetFrameLevel()+1)
+ N.armyAlertDragHandle=handle
+ movable(alert,"armyAlert",{point="TOP",relativePoint="TOP",x=0,y=-92},handle)
+ handle:SetScript("OnEnter",function(self)tooltip(self,"Request Army!",{"Drag this heading to move the alert.","Your position is saved for this character.","/ndreset restores the default positions."})end)
+ handle:SetScript("OnLeave",function()GameTooltip:Hide()end)
+ local crest=alert:CreateTexture(nil,"ARTWORK");crest:SetTexture(requestIcon);crest:SetSize(18,18);crest:SetPoint("TOPLEFT",14,-13)
+ local title=alert:CreateFontString(nil,"OVERLAY","GameFontNormalLarge");title:SetPoint("LEFT",crest,"RIGHT",6,0);title:SetText("REQUEST ARMY!");title:SetTextColor(1,0.82,0.35)
+ local counter=alert:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall");counter:SetPoint("TOPRIGHT",-62,-16)
+ local glow=alert:CreateTexture(nil,"ARTWORK");glow:SetTexture("Interface\\Minimap\\UI-Minimap-Ping-Center");glow:SetVertexColor(1,0.3,0.08,1);glow:SetPoint("CENTER",alert,"TOPLEFT",42,-68)
+ local icon=alert:CreateTexture(nil,"OVERLAY");icon:SetTexture(requestIcon);icon:SetSize(46,46);icon:SetPoint("CENTER",glow,"CENTER")
+ local who=label(alert,"GameFontHighlight",78,-46,W-92)
+ local where=label(alert,"GameFontHighlightSmall",78,-66,W-92)
+ local footer=label(alert,"GameFontDisableSmall",16,-124,W-32);footer:SetJustifyH("CENTER")
+ local function short(r)return plain(r.caller:match("^[^-]+")or r.caller)end
+ local function done()preview=nil;N.UpdateArmyAlert()end
+ local coming=button(alert,"|TInterface\\RaidFrame\\ReadyCheck-Ready:14|t I'm on my way",0,0,148,function()
+  local r=showingCall;if not r then return end
+  if preview then N.Notify("Preview: this would post in guild chat: "..N.Army.ComingMessage(r));return done()end
+  N.Army.Respond(r.id,"coming")
+ end)
+ local busy=button(alert,"|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t I'm busy",0,0,104,function()
+  local r=showingCall;if not r then return end
+  if preview then N.Notify("Preview: you would stop getting alerts for this call.");return done()end
+  N.Army.Respond(r.id,"busy")
+ end)
+ local map=button(alert,"Show Map",0,0,88,function()local r=showingCall;if r then N.Army.Open(r.mapID,r.x,r.y)end end)
+ local stop=button(alert,"Cancel",0,0,66,function()if preview then return done()end;askCancel(showingCall)end)
+ local function place(b,x,w)b:ClearAllPoints();b:SetPoint("TOPLEFT",x,-94);b:SetWidth(w);b:Show()end
+ local function step(delta)return function()requestIndex=requestIndex+delta;N.UpdateArmyAlert()end end
+ local prev=button(alert,"<",0,0,24,step(-1));prev:ClearAllPoints();prev:SetPoint("TOPRIGHT",-36,-12)
+ local nextCall=button(alert,">",0,0,24,step(1));nextCall:ClearAllPoints();nextCall:SetPoint("TOPRIGHT",-12,-12)
+ prev:SetFrameLevel(handle:GetFrameLevel()+2);nextCall:SetFrameLevel(handle:GetFrameLevel()+2)
+ local pulse=0
+ alert:SetScript("OnUpdate",function(_,dt)
+  pulse=pulse+dt;local wave=(math.sin(pulse*3)+1)/2
+  icon:SetAlpha(0.7+0.3*wave);glow:SetAlpha(0.35+0.65*wave);glow:SetSize(58+18*wave,58+18*wave)
+  alert:SetBackdropBorderColor(1,0.30+wave*0.25,0.08,1)
+ end)
+ local function pending()
+  local list={}
+  for _,r in ipairs(activeCalls())do if r.caller==N.Me()or N.Army.NeedsAnswer(r)then list[#list+1]=r end end
+  return list
+ end
+ local function alarm(calls)
+  for _,r in ipairs(calls)do
+   if not seen[r.id]then
+    seen[r.id]=true
+    if r.caller~=N.Me()and PlaySound and SOUNDKIT and SOUNDKIT.RAID_WARNING then pcall(PlaySound,SOUNDKIT.RAID_WARNING,"Master")end
+   end
+  end
+ end
+ function N.UpdateArmyAlert()
+  N.RestoreUIPositions()
+  hud:SetShown(N.db~=nil)
+  local calls=preview and{preview}or pending();alarm(calls)
+  alert:SetShown(#calls>0)
+  if #calls==0 then showingCall=nil;return end
+  if requestIndex>#calls then requestIndex=1 elseif requestIndex<1 then requestIndex=#calls end
+  showingCall=calls[requestIndex];local r=showingCall
+  local own=not preview and r.caller==N.Me()
+  counter:SetText(#calls>1 and requestIndex.." of "..#calls or"");prev:SetShown(#calls>1);nextCall:SetShown(#calls>1)
+  local member=preview and preview.member or N.members[r.caller]
+  local level=member and tonumber(member.level)
+  who:SetText(own and"Your call for help is active"or("|cff"..N.ClassColor(member)..short(r).."|r needs help!"..(level and"  |cffb0b0b0level "..level.."|r"or"")))
+  local now=GetServerTime and GetServerTime()or time()
+  local minutes=math.max(0,math.floor((now-(tonumber(r.created)or now))/60))
+  where:SetText(plain(r.zone).."  |cffffd100"..coords(r).."|r  \194\183  "..(minutes<1 and"called just now"or"called "..minutes.." min ago"))
+  local canCancel=not preview and N.Army.CanCancel and N.Army.CanCancel(r)
+  if own then
+   coming:Hide();busy:Hide();place(map,16,150);place(stop,172,150);stop:SetText("Cancel Request")
+   footer:SetText("Stays active until you, an officer or the GM cancels it.")
+  else
+   place(coming,16,148);place(busy,168,104);place(map,276,88)
+   stop:SetText(preview and"Close"or"Cancel");if preview or canCancel then place(stop,368,58)else stop:Hide()end
+   footer:SetText(preview and"Preview only: nothing is sent to the guild."or"On my way posts an automatic guild chat message and marks "..short(r).." on your map for 30 min.")
+  end
+ end
+ function N.ShowArmyPreview()
+  local mapID,zone,x,y
+  pcall(function()
+   mapID=C_Map.GetBestMapForUnit("player");zone=C_Map.GetMapInfo(mapID).name
+   local pos=C_Map.GetPlayerMapPosition(mapID,"player");if pos.GetXY then x,y=pos:GetXY()else x,y=pos.x,pos.y end
+  end)
+  local now=GetServerTime and GetServerTime()or time()
+  preview={id="preview",caller="Thrall",zone=zone or"Durotar",mapID=mapID or 1411,x=finite(x)and x or 0.5,y=finite(y)and y or 0.5,created=now-120,member={classFile="SHAMAN",class="Shaman",level=60}}
+  requestIndex=1;seen.preview=nil;N.UpdateArmyAlert()
+ end
 end
 N.Army.OnRequestsChanged=function()N.UpdateArmyAlert();if window:IsShown()and N.Render then N.Render()end end
 local alertDriver=CreateFrame("Frame");local alertTick=0
@@ -578,7 +674,7 @@ local banner=orders:CreateTexture(nil,"ARTWORK");banner:SetTexture("Interface\\A
 local axeLeft=orders:CreateTexture(nil,"ARTWORK");axeLeft:SetTexture("Interface\\AddOns\\NO_DRAMA\\Media\\WarHall\\LeftAxe.tga");axeLeft:SetSize(48,96);axeLeft:SetPoint("TOPLEFT",71,-5)
 local axeRight=orders:CreateTexture(nil,"ARTWORK");axeRight:SetTexture("Interface\\AddOns\\NO_DRAMA\\Media\\WarHall\\RightAxe.tga");axeRight:SetSize(48,96);axeRight:SetPoint("TOPRIGHT",-71,-5)
 local ordersLabel=label(orders,"GameFontNormalSmall",14,-111,279);ordersLabel:SetText("GUILD MESSAGE OF THE DAY")
-local ordersText=label(orders,"GameFontHighlight",14,-130,279);ordersText:SetFont("Fonts\\FRIZQT__.TTF",10);ordersText:SetTextColor(0.90,0.85,0.72);ordersText:SetSpacing(3);ordersText:SetWordWrap(true)
+local ordersText=label(orders,"GameFontHighlight",14,-130,279);N.SetFont(ordersText,10);ordersText:SetTextColor(0.90,0.85,0.72);ordersText:SetSpacing(3);ordersText:SetWordWrap(true)
 local ordersMotto=label(orders,"GameFontNormalSmall",14,-220,279);ordersMotto:SetJustifyH("CENTER");ordersMotto:SetText("LOK'TAR OGAR!")
 local pages={"Announcements","Army map","Guild chat","Officer chat","Roster","Dungeon finder","Requests","Guild bank","Guild polls","Discord"}
 local tabIcons={"INV_Misc_Note_01","INV_Misc_Map_01","INV_Misc_GroupLooking","INV_Misc_Key_03","INV_Helmet_03","INV_Misc_GroupNeedMore","INV_Misc_Bag_10","INV_Misc_Coin_01","INV_Misc_Book_09","INV_BannerPVP_01"}
@@ -657,11 +753,11 @@ local function chatBubble(y,entry,prior,channel,first)
   r.chatBg=CreateFrame("Frame",nil,r,"BackdropTemplate")
   r.chatBg:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=8,insets={left=3,right=3,top=3,bottom=3}})
   r.chatAvatar=r:CreateTexture(nil,"ARTWORK");r.chatAvatar:SetSize(28,28)
-  r.chatSender=label(r,"GameFontNormalSmall",42,-1,400);r.chatSender:SetFont("Fonts\\FRIZQT__.TTF",10,"");r.chatSender:SetWordWrap(false)
+  r.chatSender=label(r,"GameFontNormalSmall",42,-1,400);N.SetFont(r.chatSender,10);r.chatSender:SetWordWrap(false)
   r.chatTime=label(r,"GameFontDisableSmall",0,0,40)
  end
  local maxBubble=math.max(52,math.min(math.floor(contentWidth*0.76),contentWidth-84))
- r.left:SetParent(r.chatBg);r.left:SetFont("Fonts\\FRIZQT__.TTF",12,"");r.left:SetSpacing(2);r.left:SetWordWrap(true);r.left:SetWidth(maxBubble-24)
+ r.left:SetParent(r.chatBg);N.SetFont(r.left,12);r.left:SetSpacing(2);r.left:SetWordWrap(true);r.left:SetWidth(maxBubble-24)
  -- Measure the client-rendered text. Opaque chat handles must never be stripped,
  -- decoded or measured by their token byte length.
  r.left:SetText(display)
@@ -943,8 +1039,9 @@ function N.Render()
   for _,r in ipairs(calls)do
    local call=r;local key="request:"..r.id
    local entry=listRow(y,"|T"..requestIcon..":16|t "..gold(plain(r.caller:gsub("%-.*",""))),"HELP",key,nil,function(owner)tooltip(owner,"REQUEST ARMY!",{plain(call.caller).." needs help",plain(call.zone).." ("..coords(call)..")","Active until cancelled by the requester, an officer, or the GM.","Rally point recorded at request time; layer unknown."})end,43)
-   if not entry.requestInfo then entry.requestInfo=label(entry,"GameFontHighlightSmall",23,-24,279);entry.requestInfo:SetFont("Fonts\\FRIZQT__.TTF",8)end
-   entry.requestInfo:SetWidth(contentWidth-26);entry.requestInfo:SetText(plain(r.zone).." ("..coords(r)..") - Until cancelled");entry.requestInfo:Show()
+   if not entry.requestInfo then entry.requestInfo=label(entry,"GameFontHighlightSmall",23,-24,279);N.SetFont(entry.requestInfo,8)end
+   local answer=N.Army.Response and N.Army.Response(r)
+   entry.requestInfo:SetWidth(contentWidth-26);entry.requestInfo:SetText(plain(r.zone).." ("..coords(r)..") - "..(answer=="coming"and"|cff60ff60You're on your way|r"or(answer=="busy"and"|cffb0b0b0You're busy|r"or"Until cancelled")));entry.requestInfo:Show()
    if selected[N.page]==key then chosenCall=r end;y=y+45
   end
   if #calls>0 then y=y+4 end
@@ -957,7 +1054,7 @@ function N.Render()
     local entry=listRow(y,display,math.floor(position.age or 0).."s",key,nil,function(owner)
      tooltip(owner,plain(position.name),{liveLine(position),"Latest coordinates shared by this member's addon.","Different layers and phases are not verified."})
     end,43)
-    if not entry.requestInfo then entry.requestInfo=label(entry,"GameFontHighlightSmall",23,-24,279);entry.requestInfo:SetFont("Fonts\\FRIZQT__.TTF",9,"")end
+    if not entry.requestInfo then entry.requestInfo=label(entry,"GameFontHighlightSmall",23,-24,279);N.SetFont(entry.requestInfo,9)end
     entry.requestInfo:SetWidth(contentWidth-26);entry.requestInfo:SetText(liveLine(position));entry.requestInfo:Show()
     if selected[N.page]==key then chosenLive=position end;y=y+45
    end
@@ -989,7 +1086,10 @@ function N.Render()
   end)
   if chosenCall and N.Army.CanCancel and N.Army.CanCancel(chosenCall)then action(2,"Cancel Request",function()askCancel(chosenCall)end)
   else action(2,N.db.showGuildMap==false and "Show Pins" or "Hide Pins",function() N.db.showGuildMap=N.db.showGuildMap==false; N.Army.Draw(); N.Render() end)end
-  action(3,"Refresh",function() N.Call("GuildRoster","GuildRoster"); N.Notify("Roster refresh requested.") end)
+  if chosenCall and chosenCall.caller~=N.Me()then
+   action(3,"I'm on my way",function()N.Army.Respond(chosenCall.id,"coming")end)
+   action(4,"I'm busy",function()N.Army.Respond(chosenCall.id,"busy")end)
+  else action(3,"Refresh",function() N.Call("GuildRoster","GuildRoster"); N.Notify("Roster refresh requested.") end)end
  elseif N.page=="Roster" then
   columnLabels[1]:SetText("Member"); columnLabels[2]:SetText("Rank")
   local query=(rosterSearch:GetText()or""):lower():gsub("^%s+",""):gsub("%s+$","")
@@ -1037,7 +1137,7 @@ function N.Render()
    r.left:Hide();r.right:Hide()
    if not r.memberColumns then
     r.memberColumns={}
-    for i=1,#rosterColumns do local cell=label(r,"GameFontHighlightSmall",0,-6,50);cell:SetFont("Fonts\\FRIZQT__.TTF",10,"");cell:SetWordWrap(false);r.memberColumns[i]=cell end
+    for i=1,#rosterColumns do local cell=label(r,"GameFontHighlightSmall",0,-6,50);N.SetFont(cell,10);cell:SetWordWrap(false);r.memberColumns[i]=cell end
     r.rowShade=r:CreateTexture(nil,"BACKGROUND",nil,-3);r.rowShade:SetTexture("Interface\\Buttons\\WHITE8X8");r.rowShade:SetAllPoints()
    end
    r.rowShade:SetVertexColor(0.19,0.16,0.12,used%2==0 and 0.38 or 0.15);r.rowShade:Show()
@@ -1142,6 +1242,7 @@ end
 SLASH_NODRAMA1="/nd"; SLASH_NODRAMA2="/nodrama"; SLASH_NODRAMA3="/zd"; SLASH_NODRAMA4="/zerodrama"
 SlashCmdList.NODRAMA=function(msg)
  if (msg or""):lower():match("^%s*testpopup%s*$")and N.Groups then N.Groups.Test();return end
+ if (msg or""):lower():match("^%s*testarmy%s*$")and N.ShowArmyPreview then N.ShowArmyPreview();return end
  if (msg or""):lower():match("^%s*needs%s*$")and N.Needs then N.Needs.ToggleTracker();N.Notify("Guild needs window "..(N.Needs.TrackerShown()and"on."or"off."));return end
  if window:IsShown() then window:Hide()
  else N.Scope(); N.RefreshRoster(); N.Call("GuildRoster","GuildRoster"); window:Show(); N.Render() end

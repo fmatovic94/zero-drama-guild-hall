@@ -42,6 +42,18 @@ function N.UpdateMOTD(text)
  return pcall(fn,text)
 end
 function N.Safe(s) return tostring(s or ""):gsub("|", ""):gsub("[%c]", " ") end
+-- Byte limits must not split a multi-byte UTF-8 letter (Cyrillic is 2 bytes), or it draws as a box.
+function N.Clip(s,limit)
+ s=tostring(s or"");if #s<=limit then return s end
+ s=s:sub(1,limit)
+ local i=#s;while i>0 and s:byte(i)>=128 and s:byte(i)<192 do i=i-1 end
+ local lead=i>0 and s:byte(i)
+ if lead and lead>=192 then
+  local need=lead>=240 and 4 or(lead>=224 and 3 or 2)
+  if #s-i+1<need then s=s:sub(1,i-1)end
+ end
+ return s
+end
 -- Blizzard K strings are opaque, client-rendered handles, not durable text.
 -- Keep complete handles only in this Lua session; SavedVariables receive a
 -- neutral marker. General/protocol sanitization above intentionally stays strict.
@@ -297,7 +309,7 @@ function N.Send(...)
 end
 function N.Notify(text) if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("|cffd4af68ZERO DRAMA:|r "..text) end end
 function N.Warn(target, reason)
- target=N.Full(target); reason=N.Safe(reason):sub(1,100)
+ target=N.Full(target); reason=N.Clip(N.Safe(reason),100)
  if not N.db or not N.IsOfficer(N.Me()) or not N.members[target] then return false end
  local me,other=N.members[N.Me()],N.members[target]
  if me.index>=other.index then return false end
@@ -501,7 +513,7 @@ function N.Receive(prefix,msg,channel,sender)
  elseif op=="W" and N.IsOfficer(sender) and #p==4 then
   local target=N.Full(p[2]); local m=N.members[target]; local stamp=tonumber(p[4]); local old=N.db.warnings[target]
   if m and N.members[sender].index<m.index and stamp and stamp<=time()+60 and (not old or stamp>=old.stamp) then
-   N.db.warnings[target]={reason=N.Safe(p[3]):sub(1,100),by=sender,stamp=stamp}
+   N.db.warnings[target]={reason=N.Clip(N.Safe(p[3]),100),by=sender,stamp=stamp}
   end
  elseif op=="R" and N.members[sender].index==0 and N.members[N.Full(p[2])] then
   local role=p[3]
