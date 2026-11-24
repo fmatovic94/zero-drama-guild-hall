@@ -2,13 +2,14 @@
 
 A Horde guild hall addon for **World of Warcraft Forever** (Interface **16001**). It opens an expanded native-style guild window with guild and officer chat, a sortable roster, live member positions on the map, calls for backup, a guild dungeon finder, guild material/gold requests, polls and more.
 
-Current version: **0.19.0-beta** · [CurseForge](https://www.curseforge.com/wow/addons/zero-drama-guild-hall) · [Discord](https://discord.gg/3zQVrNWTm)
+Current version: **0.20.0-beta** · [CurseForge](https://www.curseforge.com/wow/addons/zero-drama-guild-hall) · [Discord](https://discord.gg/3zQVrNWTm)
 
 ## Features
 
 - **Announcements:** the guild message of the day and guild information. Editing follows the real guild permissions.
 - **Guild and officer chat:** conversation-style chat with class-colored names, rank badges and saved history (newest 500 messages per channel).
-- **Roster:** sortable by name, level, class, rank, area and status, with search, an online-only filter, member details and a marker for members who run the addon.
+- **Roster:** sortable by name, level, class, rank, points, area and status, with search, an online-only filter, member details and a marker for members who run the addon.
+- **Guild points:** officers and the GM add or remove points (with an optional reason) for members from the roster. Everyone sees the totals and recent changes; officers and the GM are exempt from scoring. Members who log in later get the current totals from an online officer.
 - **Army map:** live, self-reported positions of guild members on the world map (Blizzard map and OpenMap). Sharing can be turned off with **Share my live location**.
 - **Request Army!:** drop a rally point that alerts every online addon user until the caller or an officer cancels it. Guildmates answer from the popup: **I'm on my way** posts an automatic guild chat message and follows the caller's live position on the map for 30 minutes; **I'm busy** hides the alerts for that call.
 - **Dungeon finder:** find guild members for dungeon groups.
@@ -41,6 +42,7 @@ WoW Forever reports `C_ChatInfo.AreOutgoingAddonChatMessagesRestricted()` as `tr
 | --- | --- |
 | `Core.lua` | Saved data, roster, messaging queue and message routing |
 | `Groups.lua` | Dungeon finder |
+| `Points.lua` | Guild points, change history and officer snapshots |
 | `Needs.lua` | Guild requests, the Guild Needs window and request forms |
 | `NeedsMail.lua` | Mailbox Guild Needs panel and auto-fill |
 | `Army.lua` | Request Army! calls and alerts |

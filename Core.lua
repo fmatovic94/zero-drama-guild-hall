@@ -503,6 +503,7 @@ function N.Receive(prefix,msg,channel,sender)
  if op=="H1"or op=="HC"or op=="HS"then if N.Army and N.Army.ReceiveRequest then N.Army.ReceiveRequest(op,p,sender)end
  elseif op=="D1"or op=="DJ"or op=="DX"then if N.Groups then N.Groups.Receive(op,p,sender)end
  elseif op=="N1"or op=="N2"or op=="N3"or op=="NX"or op=="NG"or op=="NQ"then if N.Needs then N.Needs.Receive(op,p,sender)end
+ elseif op=="S1"or op=="SS"or op=="SQ"then if N.Points then N.Points.Receive(op,p,sender)end
  elseif op=="P2" or op=="O2" or op=="V2" or op=="C2" then receivePoll(op,p,sender)
  elseif op=="V" and #p==3 then
   local poll=N.db.polls[p[2]]; local choice=tonumber(p[3])

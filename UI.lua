@@ -311,6 +311,28 @@ local function ask(title,help,values,fn)
  for i,e in ipairs(fields) do e:SetText(values[i] or ""); e:SetShown(values[i]~=nil) end
  dialog:Show(); if values[1]~=nil then fields[1]:SetFocus() end
 end
+do
+ local half=math.floor((layout.detailWidth-6)/2)
+ local target
+ local function change(sign)
+  return function()
+   if not target then return end
+   local name=plain(target.name:match("^[^-]+")or target.name)
+   ask((sign>0 and"Add points: "or"Remove points: ")..name,"Enter the number of points and an optional reason. Everyone with the addon sees the new total.",{sign>0 and"10"or"5",""},function(amount,reason)
+    local value=tonumber(amount);if not value or value<=0 or value%1~=0 then return false end
+    return N.Points.Adjust(target.name,sign*value,reason)
+   end)
+  end
+ end
+ local add=button(window,"+ Add points",layout.detailX+12,-446,half,change(1))
+ local remove=button(window,"- Remove points",layout.detailX+18+half,-446,half,change(-1))
+ add:Hide();remove:Hide()
+ function N.UpdatePointsControls(m)
+  local show=(m~=nil and N.Points and N.Points.CanEdit()and not N.Points.IsExempt(m.name))and true or false
+  target=show and m or nil;add:SetShown(show);remove:SetShown(show)
+  detailScroll:SetHeight(show and 326 or 353)
+ end
+end
 local drafts={GUILD="",OFFICER=""}; local composerChannel; local draftScope
 local composer=inset(window,layout.chatX,-442,layout.chatWidth,64)
 local chatEdit=CreateFrame("EditBox","NoDramaChatInput",window,"InputBoxTemplate"); N.chatInput=chatEdit
@@ -410,9 +432,10 @@ local classStrip=label(window,"GameFontHighlightSmall",layout.panelX+layout.cont
 -- N.Render is at Lua 5.1's 60-upvalue limit; it must reach this through N.
 N.classStrip=classStrip
 local rosterColumns={
- {key="name",label="Name",fraction=0.22}, {key="level",label="Lv",fraction=0.045},
- {key="class",label="Class",fraction=0.105}, {key="rank",label="Guild rank",fraction=0.17},
- {key="zone",label="Area / last seen",fraction=0.23}, {key="status",label="Status",fraction=0.1},
+ {key="name",label="Name",fraction=0.2}, {key="level",label="Lv",fraction=0.045},
+ {key="class",label="Class",fraction=0.1}, {key="rank",label="Guild rank",fraction=0.16},
+ {key="points",label="Points",fraction=0.075},
+ {key="zone",label="Area / last seen",fraction=0.195}, {key="status",label="Status",fraction=0.095},
  {key="addon",label="Addon",fraction=0.13},
 }
 N.rosterColumns=rosterColumns;N.rosterHeaders={}
@@ -994,6 +1017,7 @@ function N.Render()
  orders:Hide()
  for _,r in ipairs(rows) do r:Hide() end
  for _,b in pairs(actions) do b:Hide() end
+ N.UpdatePointsControls()
  for _,card in ipairs(pollCards)do card:Hide()end
  local officer=N.IsOfficer(N.Me()); local gm=N.IsGM()
  if not officer or N.page~="Guild polls" or not N.db then creator:Hide()end
@@ -1113,6 +1137,7 @@ function N.Render()
    elseif rosterSort=="level"then av,bv=a.level or 0,b.level or 0
    elseif rosterSort=="status"then av,bv=N.MemberStatus(a),N.MemberStatus(b)
    elseif rosterSort=="addon"then av,bv=select(3,N.AddonStatus(a)),select(3,N.AddonStatus(b))
+   elseif rosterSort=="points"then av,bv=-N.Points.SortValue(a),-N.Points.SortValue(b)
    else av,bv=tostring(a[rosterSort]or""):lower(),tostring(b[rosterSort]or""):lower()end
    if av==bv then return a.name<b.name end
    if rosterDescending then return av>bv end;return av<bv
@@ -1128,6 +1153,7 @@ function N.Render()
    if hasWarning then display=display.." |TInterface\\AddOns\\NO_DRAMA\\Media\\YellowCard.tga:11:7|t" end
    local r=listRow(y,display,plain(N.DisplayRank(m)),m.name,nil,function(owner)
     local lines={plain(N.DisplayRank(m))..(role(m)~="" and " \194\183 "..role(m) or ""),"Guild rank: "..plain(m.rank),"Level "..tostring(m.level or"?").." "..plain(m.class),"Status: "..N.MemberStatus(m),"Addon: "..(N.AddonStatus(m))..(select(3,N.AddonStatus(m))==4 and" (versions before 0.16 can't reply)"or""),m.online and "Area: "..plain(m.zone~=""and m.zone or"Unknown")or"Last seen: "..N.LastSeen(m)}
+    lines[#lines+1]="Points: "..N.Points.Display(m)
     if m.note and m.note~=""then lines[#lines+1]="Public note: "..plain(m.note)end
     if N.CanViewOfficerNotes()and m.officerNote and m.officerNote~=""then lines[#lines+1]="Officer note: "..plain(m.officerNote)end
     if hasWarning then lines[#lines+1]="Yellow card: "..w.reason; lines[#lines+1]="Issued by "..w.by end
@@ -1143,7 +1169,7 @@ function N.Render()
    r.rowShade:SetVertexColor(0.19,0.16,0.12,used%2==0 and 0.38 or 0.15);r.rowShade:Show()
    local state=N.MemberStatus(m);local where=m.online and plain(m.zone and m.zone~=""and m.zone or"Unknown area")or N.LastSeen(m)
    local tracking=N.Tracking and N.Tracking.GetStatus(m.name)or"No signal"
-   local values={display,tostring(m.level or"?"),"|cff"..classColor..plain(m.class).."|r",plain(m.rank or N.DisplayRank(m)),where,(tracking=="Live"and"|cff80d8b0Live"or(m.online and"|cff80ac69"..state or"|cff777777Offline")).."|r"}
+   local values={display,tostring(m.level or"?"),"|cff"..classColor..plain(m.class).."|r",plain(m.rank or N.DisplayRank(m)),N.Points.Display(m),where,(tracking=="Live"and"|cff80d8b0Live"or(m.online and"|cff80ac69"..state or"|cff777777Offline")).."|r"}
    local addonText,addonHex=N.AddonStatus(m);values[#values+1]="|cff"..addonHex..addonText.."|r"
    for i,col in ipairs(rosterColumns)do local cell=r.memberColumns[i];cell:ClearAllPoints();cell:SetPoint("TOPLEFT",col.x+4,-6);cell:SetWidth(math.max(1,col.width-8));cell:SetText(values[i]);cell:Show()end
    y=y+25
@@ -1152,11 +1178,12 @@ function N.Render()
   if m then
    local lines={roleBadge(m)..gold(plain(m.name)),"Level "..tostring(m.level or"?").." "..plain(m.class).." - "..plain(N.DisplayRank(m))..(role(m)~=""and" ("..role(m)..")"or""),"Status: "..N.MemberStatus(m).."   Addon: "..(N.AddonStatus(m))..(select(3,N.AddonStatus(m))==4 and" (no reply - versions before 0.16 can't reply)"or""),m.online and"Area: "..plain(m.zone and m.zone~=""and m.zone or"Unknown")or"Last seen: "..N.LastSeen(m),"Public note: "..plain(m.note and m.note~=""and m.note or"None")}
    if N.CanViewOfficerNotes()and m.officerNote and m.officerNote~=""then lines[#lines+1]="|cffe0ad74Officer note: "..plain(m.officerNote).."|r"end
+   lines[#lines+1]=N.Points.DetailText(m)
    local warning=N.db.warnings[m.name];if warning and warning.reason~=""then lines[#lines+1]="|cffffd100Yellow card: "..plain(warning.reason).."|r"end
    local tracking,age;if N.Tracking then tracking,age=N.Tracking.GetStatus(m.name)end
    if tracking then lines[#lines+1]="Location sharing: "..tracking..(age and" ("..math.floor(age).."s ago)"or"")end
    local position=livePosition(m.name);if position then lines[#lines+1]="Live position: "..liveLine(position)end
-   showDetail(table.concat(lines,"\n"))
+   showDetail(table.concat(lines,"\n"));N.UpdatePointsControls(m)
    if tracking=="Live"and N.LiveMap then action(4,"Show on map",function()N.LiveMap.ShowMember(m.name)end)end
    local me=N.members[N.Me()]
    if officer and me and me.index<m.index then
