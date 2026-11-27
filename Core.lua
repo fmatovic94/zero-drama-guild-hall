@@ -505,6 +505,7 @@ function N.Receive(prefix,msg,channel,sender)
  elseif op=="N1"or op=="N2"or op=="N3"or op=="NX"or op=="NG"or op=="NQ"then if N.Needs then N.Needs.Receive(op,p,sender)end
  elseif op=="S1"or op=="SS"or op=="SQ"then if N.Points then N.Points.Receive(op,p,sender)end
  elseif op=="B1"or op=="B2"or op=="B3"or op=="BQ"then if N.BankData then N.BankData.Receive(op,p,sender)end
+ elseif op=="K1"or op=="K2"or op=="K3"or op=="K4"or op=="KL"or op=="KX"or op=="KQ"then if N.Wanted then N.Wanted.Receive(op,p,sender)end
  elseif op=="P2" or op=="O2" or op=="V2" or op=="C2" then receivePoll(op,p,sender)
  elseif op=="V" and #p==3 then
   local poll=N.db.polls[p[2]]; local choice=tonumber(p[3])

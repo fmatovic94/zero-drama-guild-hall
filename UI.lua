@@ -702,12 +702,12 @@ local axeRight=orders:CreateTexture(nil,"ARTWORK");axeRight:SetTexture("Interfac
 local ordersLabel=label(orders,"GameFontNormalSmall",14,-111,279);ordersLabel:SetText("GUILD MESSAGE OF THE DAY")
 local ordersText=label(orders,"GameFontHighlight",14,-130,279);N.SetFont(ordersText,10);ordersText:SetTextColor(0.90,0.85,0.72);ordersText:SetSpacing(3);ordersText:SetWordWrap(true)
 local ordersMotto=label(orders,"GameFontNormalSmall",14,-220,279);ordersMotto:SetJustifyH("CENTER");ordersMotto:SetText("LOK'TAR OGAR!")
-local pages={"Announcements","Army map","Guild chat","Officer chat","Roster","Dungeon finder","Requests","Guild bank","Guild polls","Discord"}
-local tabIcons={"INV_Misc_Note_01","INV_Misc_Map_01","INV_Misc_GroupLooking","INV_Misc_Key_03","INV_Helmet_03","INV_Misc_GroupNeedMore","INV_Misc_Bag_10","INV_Misc_Coin_01","INV_Misc_Book_09","INV_BannerPVP_01"}
+local pages={"Announcements","Army map","Guild chat","Officer chat","Roster","Dungeon finder","Requests","Guild bank","Kill list","Guild polls","Discord"}
+local tabIcons={"INV_Misc_Note_01","INV_Misc_Map_01","INV_Misc_GroupLooking","INV_Misc_Key_03","INV_Helmet_03","INV_Misc_GroupNeedMore","INV_Misc_Bag_10","INV_Misc_Coin_01","INV_Misc_Bone_HumanSkull_01","INV_Misc_Book_09","INV_BannerPVP_01"}
 local tabs={}
 for i,page in ipairs(pages) do
  local b=nativeFrame("CheckButton",nil,window,"RightSideTabTemplate",nil)
- b:SetSize(38,38); b:SetPoint("TOPLEFT",window,"TOPRIGHT",0,-43-(i-1)*46)
+ b:SetSize(38,38); b:SetPoint("TOPLEFT",window,"TOPRIGHT",0,-43-(i-1)*42)
  local texture=b.Icon
  if not texture then
   texture=b:CreateTexture(nil,"ARTWORK"); texture:SetSize(30,30); texture:SetPoint("CENTER")
@@ -1161,6 +1161,90 @@ do
   return y
  end
 end
+do
+ local W=N.Wanted
+ local function where(zone,x,y)
+  return plain(zone~=""and zone or"Unknown area")..((x or 0)>0 and string.format(" (%.1f, %.1f)",x/10,y/10)or"")
+ end
+ local function who(st)
+  local info=st.info or{}
+  local classColor=info.class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[info.class]
+  local hex=classColor and string.format("%02x%02x%02x",classColor.r*255,classColor.g*255,classColor.b*255)or"ff6060"
+  return"|cff"..hex..plain(W.Short(st.name)).."|r"
+ end
+ local function describe(st)
+  local info=st.info or{}
+  local parts={}
+  if info.race then parts[#parts+1]=plain(info.race)end
+  if info.class then parts[#parts+1]=plain(info.class:sub(1,1)..info.class:sub(2):lower())end
+  if info.level then parts[#parts+1]="level "..info.level end
+  return table.concat(parts," ")
+ end
+ local function mathText(st)
+  local lines={gold("HOW THIS WANTED LEVEL IS WORKED OUT")}
+  lines[#lines+1]=string.format("Kill credit: %.2f from %d kills (shared when several enemies were on the victim)",st.credit,st.kills)
+  lines[#lines+1]=string.format("After fading (half every 7 days): %.2f",st.raw)
+  if st.camps>0 then lines[#lines+1]="Camping: "..st.camps.." repeat kill(s) on the same guildie within 15 min count x1.5"end
+  lines[#lines+1]=string.format("Different victims: %d, so x%.2f",st.victims,st.spread)
+  if st.revenge>0 then lines[#lines+1]=string.format("Revenge kills by the guild: -%.2f",W.REVENGE_WEIGHT*st.revenge)end
+  lines[#lines+1]=string.format("Heat: |cffffd100%.2f|r = %s",st.heat,st.stars.." of 6 stars")
+  local nextStar=W.thresholds[st.stars+1]
+  lines[#lines+1]=nextStar and string.format("Next star at %.1f heat",nextStar)or"Maximum wanted level"
+  return table.concat(lines,"\n")
+ end
+ function N.RenderWantedPage(y)
+  columnLabels[1]:SetText("Enemy players who killed guild members");columnLabels[2]:SetText("Heat")
+  local list=W.List();local chosen
+  for _,st in ipairs(list)do if st.name==selected[N.page]then chosen=st end end
+  if not chosen and list[1]then chosen=list[1];selected[N.page]=chosen.name end
+  for _,st in ipairs(list)do
+   local info=st.info or{}
+   local top=(st.kos and"|T"..W.SKULL..":14|t "or"")..W.StarText(st.stars,13).."  "..who(st)..(st.kos and"  |cffff2020KILL ON SIGHT|r"or"")
+   local facts={st.kills.." kill"..(st.kills==1 and""or"s").." on "..st.victims.." guildie"..(st.victims==1 and""or"s")}
+   if st.last then facts[#facts+1]="last "..W.Age(st.last.stamp)end
+   if info.seen then facts[#facts+1]="seen "..W.Age(info.seen).." in "..plain(info.zone or"?")end
+   listRow(y,top.."\n|cffbbbbbb"..table.concat(facts,"  \194\183  ").."|r",string.format("%.1f",st.heat),st.name,nil,nil,36);y=y+38
+  end
+  if #list==0 then
+   y=textBlock(gold("Nobody is wanted yet").."\n\nWhen an Alliance player kills a guild member who uses ZERO DRAMA, they land on this list. Every kill raises their wanted level, up to 6 stars.\n\nGuildies with the addon see the stars above that player's name when they pass them, as long as enemy nameplates are on (press V).\n\nOfficers can also put anyone on the list as Kill on sight.")
+  end
+  if chosen then
+   local lines={(chosen.kos and"|T"..W.SKULL..":16|t "or"")..gold(plain(chosen.name)),describe(chosen),W.StarText(chosen.stars,16)}
+   if chosen.kos then lines[#lines+1]="|cffa02020KILL ON SIGHT|r - added by "..plain(W.Short(chosen.kos.by)).." "..W.Age(chosen.kos.stamp)..(chosen.kos.reason~=""and"\n\""..plain(chosen.kos.reason).."\""or"")end
+   local info=chosen.info or{}
+   if info.seen then lines[#lines+1]="Last seen "..W.Age(info.seen).." in "..where(info.zone,info.x,info.y)..(info.seenBy and" by "..plain(W.Short(info.seenBy))or"")end
+   lines[#lines+1]=""
+   lines[#lines+1]=mathText(chosen)
+   lines[#lines+1]="\n"..gold("KILLS")
+   local events=W.Events(chosen.name)
+   for i=1,math.min(15,#events)do
+    local e=events[i]
+    lines[#lines+1]=(e.kind=="R"and"|cff1f7a1fRevenge:|r "..plain(W.Short(e.by)).." killed them"or plain(W.Short(e.by)).." was killed"..((e.credit or 1000)<1000 and" (shared)"or""))..", "..W.Age(e.stamp).."\n   "..where(e.zone,e.x,e.y)
+   end
+   if #events==0 then lines[#lines+1]="No kills recorded."end
+   showDetail(table.concat(lines,"\n"))
+  else
+   showDetail(gold("THE KILL LIST").."\n\nWanted levels go from 1 to 6 stars. Each kill on a guildie adds heat. Kills fade by half every 7 days, killing many different guildies or camping one makes it climb faster, and guild revenge kills bring it down.\n\nStar n needs 1.8^n - 1 heat: 0.8, 2.2, 4.8, 9.5, 17.9 and 33. So 1 kill is 1 star, about 3 kills are 2, about 5 are 3, and 6 stars takes a real killing spree.\n\nWhen you pass a wanted player, you get a warning and see their stars above their name.")
+  end
+  local officer=W.CanEdit()
+  local target=W.TargetName()
+  if officer and target then
+   action(1,"Add target to list",function()
+    ask("Kill on sight: "..plain(W.Short(target)),"Add a reason everyone will see (optional). Guild members with ZERO DRAMA get a warning when they pass this player.",{""},function(reason)return W.SetKOS(target,true,reason)end)
+   end)
+  elseif not officer then
+   action(1,"Officers manage list",function()N.Notify("Officers and the GM can add players to the kill list. Wanted stars are added automatically when someone kills a guildie.")end)
+  end
+  if officer and chosen then
+   if chosen.kos then action(2,"Remove kill on sight",function()W.SetKOS(chosen.name,false,"")end)
+   else action(2,"Mark kill on sight",function()
+    ask("Kill on sight: "..plain(W.Short(chosen.name)),"Add a reason everyone will see (optional).",{""},function(reason)return W.SetKOS(chosen.name,true,reason)end)
+   end)end
+  end
+  action(4,"Test marker on target",W.Preview)
+  return y
+ end
+end
 function N.Render()
  N.RestoreUIPositions()
  if not window:IsShown() then return end
@@ -1401,7 +1485,7 @@ function N.Render()
   y=N.RenderGroupsPage(y)
  elseif N.page=="Requests" then
   y=N.RenderNeedsPage(y)
- elseif N.page=="Guild bank" then
+ elseif N.page=="Kill list" then
   y=N.RenderBankPage(y)
  elseif N.page=="Guild polls" then
   columnLabels[1]:SetText("Guild polls - in-game only")
