@@ -2,7 +2,7 @@
 
 A Horde guild hall addon for **World of Warcraft Forever** (Interface **16001**). It opens an expanded native-style guild window with guild and officer chat, a sortable roster, live member positions on the map, calls for backup, a guild dungeon finder, guild material/gold requests, polls and more.
 
-Current version: **0.20.0-beta** · [CurseForge](https://www.curseforge.com/wow/addons/zero-drama-guild-hall) · [Discord](https://discord.gg/3zQVrNWTm)
+Current version: **0.21.0-beta** · [CurseForge](https://www.curseforge.com/wow/addons/zero-drama-guild-hall) · [Discord](https://discord.gg/3zQVrNWTm)
 
 ## Features
 
@@ -14,7 +14,8 @@ Current version: **0.20.0-beta** · [CurseForge](https://www.curseforge.com/wow/
 - **Request Army!:** drop a rally point that alerts every online addon user until the caller or an officer cancels it. Guildmates answer from the popup: **I'm on my way** posts an automatic guild chat message and follows the caller's live position on the map for 30 minutes; **I'm busy** hides the alerts for that call.
 - **Dungeon finder:** find guild members for dungeon groups.
 - **Requests / Guild Needs:** post the profession mats or gold you need (gold needs a reason). Guildmates see them in a small, movable **Guild Needs** window (`/zd needs`) and in a panel at the mailbox, where **Fill** prepares the mail and the gift is recorded after sending.
-- **Guild bank, polls, warnings and insignia:** bank item records where available, officer polls, yellow-card warnings and custom rank badges.
+- **Guild bank:** the items in every tab with hover stats, the bank's gold and a ledger of deposits and withdrawals. Whoever opens the bank shares it with the guild. Members click items to request them, or request gold, and the requests appear in Requests.
+- **Polls, warnings and insignia:** officer polls, yellow-card warnings and custom rank badges.
 
 ## Install
 
@@ -43,6 +44,7 @@ WoW Forever reports `C_ChatInfo.AreOutgoingAddonChatMessagesRestricted()` as `tr
 | `Core.lua` | Saved data, roster, messaging queue and message routing |
 | `Groups.lua` | Dungeon finder |
 | `Points.lua` | Guild points, change history and officer snapshots |
+| `Bank.lua` | Guild bank contents, gold and ledger, shared between members |
 | `Needs.lua` | Guild requests, the Guild Needs window and request forms |
 | `NeedsMail.lua` | Mailbox Guild Needs panel and auto-fill |
 | `Army.lua` | Request Army! calls and alerts |

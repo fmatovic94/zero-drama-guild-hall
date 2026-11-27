@@ -312,7 +312,6 @@ local function ask(title,help,values,fn)
  dialog:Show(); if values[1]~=nil then fields[1]:SetFocus() end
 end
 do
- local half=math.floor((layout.detailWidth-6)/2)
  local target
  local function change(sign)
   return function()
@@ -324,13 +323,17 @@ do
    end)
   end
  end
- local add=button(window,"+ Add points",layout.detailX+12,-446,half,change(1))
- local remove=button(window,"- Remove points",layout.detailX+18+half,-446,half,change(-1))
+ local width=130
+ local x=layout.panelX+layout.fullWidth-12-width
+ local add=button(window,"+ Add points",x,-400,width,change(1))
+ local remove=button(window,"- Remove points",x,-426,width,change(-1))
  add:Hide();remove:Hide()
  function N.UpdatePointsControls(m)
   local show=(m~=nil and N.Points and N.Points.CanEdit()and not N.Points.IsExempt(m.name))and true or false
   target=show and m or nil;add:SetShown(show);remove:SetShown(show)
-  detailScroll:SetHeight(show and 326 or 353)
+  if show then
+   detailScroll:SetWidth(layout.fullWidth-24-width-12);detailBody:SetWidth(detailScroll:GetWidth());detail:SetWidth(detailScroll:GetWidth())
+  end
  end
 end
 local drafts={GUILD="",OFFICER=""}; local composerChannel; local draftScope
@@ -969,7 +972,7 @@ do
   if not chosen and list[1]then chosen=list[1];selected[N.page]=chosen.id end
   for _,req in ipairs(list)do
    local owner=N.members[req.owner];local done=R.Done(req)
-   local top="|cff"..N.ClassColor(owner)..plain(R.Short(req.owner)).."|r   "..gold(req.kind=="gold"and"Gold"or plain(req.prof))
+   local top="|cff"..N.ClassColor(owner)..plain(R.Short(req.owner)).."|r   "..gold(plain(R.Title(req)))
     ..(req.owner==me and"   |cffffd100(yours)|r"or"")..(done and"   |cff40d040covered|r"or"").."   |cff888888"..R.Age(req).."|r"
    listRow(y,top.."\n|cffbbbbbb"..plain(R.Summary(req,3)).."|r",done and"|cff40d0400|r"or R.LeftText(req),req.id,nil,nil,36)
    y=y+38
@@ -979,7 +982,7 @@ do
    showDetail(gold("GUILD REQUESTS").."\n\nPost the materials or gold you need. Guildies see them in the guild needs window, which they can move, collapse or turn off.\n\nAt a mailbox, click Guild Needs at the top of the mail window, pick a request, and the mail is filled in with the mats attached. Press Send, and the guild's list updates automatically.\n\nRequests close when their owner closes them, or after 3 days.")
   else
    local owner=N.members[chosen.owner]
-   local lines={gold(chosen.kind=="gold"and"GOLD REQUEST"or string.upper(plain(chosen.prof)).." MATS"),
+   local lines={gold(chosen.prof==R.BANK and string.upper(R.Title(chosen))or(chosen.kind=="gold"and"GOLD REQUEST"or string.upper(plain(chosen.prof)).." MATS")),
     "From |cff"..N.ClassColor(owner)..plain(R.Short(chosen.owner)).."|r"..(owner and owner.level and", level "..owner.level or"").."  \194\183  "..R.Age(chosen)}
    if chosen.reason~=""then lines[#lines+1]="\""..plain(chosen.reason).."\""end
    lines[#lines+1]=""
@@ -1009,6 +1012,155 @@ do
   return y
  end
 end
+do
+ local B,R=N.BankData,N.Needs
+ local SIZE,GAP=36,5
+ local slots,shown={},0
+ local basket={}
+ local banner=CreateFrame("Frame",nil,body,"BackdropTemplate")
+ banner:SetHeight(58)
+ banner:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",edgeSize=10,insets={left=3,right=3,top=3,bottom=3}})
+ banner:SetBackdropColor(0.13,0.085,0.035,0.92);banner:SetBackdropBorderColor(0.72,0.55,0.22,0.9);banner:Hide()
+ local coin=banner:CreateTexture(nil,"ARTWORK");coin:SetSize(38,38);coin:SetPoint("LEFT",10,0);coin:SetTexture("Interface\\Icons\\INV_Misc_Coin_02")
+ local caption=label(banner,"GameFontNormalSmall",58,-9,300);caption:SetText("GUILD BANK GOLD")
+ local money=label(banner,"GameFontHighlightLarge",58,-24,300);N.SetFont(money,16)
+ local status=label(banner,"GameFontHighlightSmall",0,-10,200);status:SetJustifyH("RIGHT");N.SetFont(status,10)
+ local stats=label(banner,"GameFontHighlightSmall",0,-30,200);stats:SetJustifyH("RIGHT");N.SetFont(stats,10);stats:SetTextColor(0.75,0.7,0.6)
+ local function quality(it)
+  local q=it.quality
+  if not q and C_Item and C_Item.GetItemQualityByID then q=C_Item.GetItemQualityByID(it.id)end
+  if not q and GetItemInfo then q=select(3,GetItemInfo(it.id))end
+  return q
+ end
+ local function inBasket(id)for i,b in ipairs(basket)do if b.id==id then return b,i end end end
+ local function choose(it)
+  local name=plain(R.ItemName(it.id));local have=B.Count(it.id);local entry=inBasket(it.id)
+  ask("Request: "..name,"How many do you need? The guild bank has "..have..".\nItems you pick are listed on the right. Send them together as one request.",{tostring(entry and entry.count or math.min(have,20))},function(amount)
+   local n=tonumber(amount);if not n or n<1 or n%1~=0 then return false end
+   n=math.min(n,have,1000)
+   if entry then entry.count=n
+   elseif #basket>=8 then N.Notify("Up to 8 different items per request. Send this one first.");return true
+   else basket[#basket+1]={id=it.id,count=n}end
+   return true
+  end)
+ end
+ local function slot(i)
+  local s=slots[i]
+  if s then return s end
+  s=CreateFrame("Button",nil,body);s:SetSize(SIZE,SIZE)
+  local bg=s:CreateTexture(nil,"BACKGROUND");bg:SetTexture("Interface\\Buttons\\UI-EmptySlot-Disabled");bg:SetPoint("TOPLEFT",-9,9);bg:SetPoint("BOTTOMRIGHT",9,-9)
+  s.icon=s:CreateTexture(nil,"ARTWORK");s.icon:SetPoint("TOPLEFT",1,-1);s.icon:SetPoint("BOTTOMRIGHT",-1,1);s.icon:SetTexCoord(0.07,0.93,0.07,0.93)
+  s.border=s:CreateTexture(nil,"OVERLAY");s.border:SetTexture("Interface\\Common\\WhiteIconFrame");s.border:SetAllPoints()
+  s.count=s:CreateFontString(nil,"OVERLAY","NumberFontNormal");s.count:SetPoint("BOTTOMRIGHT",-2,2);s.count:SetJustifyH("RIGHT")
+  s.check=s:CreateTexture(nil,"OVERLAY",nil,2);s.check:SetTexture("Interface\\RaidFrame\\ReadyCheck-Ready");s.check:SetSize(14,14);s.check:SetPoint("TOPRIGHT",2,2)
+  s:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square","ADD")
+  s:RegisterForClicks("LeftButtonUp","RightButtonUp")
+  s:SetScript("OnEnter",function(self)
+   local it=self.item;if not it then return end
+   GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
+   if not pcall(GameTooltip.SetHyperlink,GameTooltip,it.link or("item:"..it.id))then GameTooltip:SetText(plain(R.ItemName(it.id)))end
+   GameTooltip:AddLine(" ")
+   GameTooltip:AddLine("In the guild bank: "..B.Count(it.id),1,0.82,0)
+   local entry=inBasket(it.id)
+   if entry then GameTooltip:AddLine("In your request: "..entry.count.."  (right-click to remove)",0.5,0.9,0.5)end
+   GameTooltip:AddLine("Click to request  \194\183  Shift-click to link in chat",0.6,0.6,0.6)
+   GameTooltip:Show()
+  end)
+  s:SetScript("OnLeave",function()GameTooltip:Hide()end)
+  s:SetScript("OnClick",function(self,mouse)
+   local it=self.item;if not it then return end
+   if IsModifiedClick and IsModifiedClick("CHATLINK")and ChatEdit_InsertLink then
+    local _,link=GetItemInfo(it.id);ChatEdit_InsertLink(it.link or link or R.ItemName(it.id));return
+   end
+   if mouse=="RightButton"then local _,i=inBasket(it.id);if i then table.remove(basket,i);N.Render()end;return end
+   choose(it)
+  end)
+  slots[i]=s
+  return s
+ end
+ function N.HideBankPage()
+  banner:Hide()
+  for i=1,shown do slots[i]:Hide();slots[i].item=nil end
+  shown=0
+ end
+ local function requestGold()
+  ask("Request gold from the guild bank","Enter how much gold you need, then say what it is for. Officers and members who can withdraw see it in Requests.",{"10",""},function(amount,reason)
+   local ok,err=R.Post("gold",R.BANK,nil,amount,reason)
+   N.Notify(ok and"Gold request sent."or err);return true
+  end)
+ end
+ local function sendBasket()
+  ask("Request from the guild bank","Add a note for whoever fills it, for example what the items are for (optional).",{""},function(reason)
+   local ok,err=R.Post("mats",R.BANK,basket,nil,reason)
+   if ok then basket={};N.Notify("Request sent. Officers and members who can withdraw see it in Requests and the guild needs window.")
+   else N.Notify(err)end
+   return true
+  end)
+ end
+ function N.RenderBankPage(y)
+  columnLabels[1]:SetText("Guild bank");columnLabels[2]:SetText("")
+  local unavailable=B.Unavailable();local v=B.View()
+  if unavailable or not v then
+   y=textBlock(gold(unavailable or"Nobody has opened the guild bank yet").."\n\n"..(unavailable and""or"Open the guild bank at a guild vault in any capital city. ZERO DRAMA reads the tabs you can view, the gold and the logs, and shares them with the guild.\n\nAfter that, everyone with the addon sees what is in the bank, can hover items for their stats, and can request items or gold."))
+   showDetail(gold("GUILD BANK").."\n\nThe contents, gold and ledger appear here once someone with ZERO DRAMA 0.21 or newer visits the guild bank.")
+   action(1,"Request gold",requestGold)
+   return y
+  end
+  banner:ClearAllPoints();banner:SetPoint("TOPLEFT",0,-y);banner:SetWidth(contentWidth);banner:Show()
+  status:ClearAllPoints();status:SetPoint("TOPRIGHT",-12,-10);stats:ClearAllPoints();stats:SetPoint("TOPRIGHT",-12,-30)
+  money:SetText(B.MoneyText(v.money))
+  status:SetText(B.IsLive()and"|cff7fd17fLive - you are at the guild bank|r"or"|cffffd100Seen by "..plain(R.Short(v.by or"?")).."  \194\183  "..B.Age(v.stamp).."|r")
+  local kinds,total=0,0
+  for _,tab in ipairs(v.tabs)do for _,it in ipairs(tab.items)do kinds=kinds+1;total=total+it.count end end
+  stats:SetText(#v.tabs.." tab"..(#v.tabs==1 and""or"s").."  \194\183  "..kinds.." kinds of items  \194\183  "..total.." total")
+  y=y+66
+  local cols=math.max(1,math.floor((contentWidth+GAP)/(SIZE+GAP)))
+  local left=math.floor((contentWidth-(cols*(SIZE+GAP)-GAP))/2)
+  for _,tab in ipairs(v.tabs)do
+   local icon=tab.icon and(tonumber(tab.icon)or tab.icon)or"Interface\\Icons\\INV_Misc_Bag_10"
+   listRow(y,"|T"..icon..":16|t  "..gold(plain(tab.name)),#tab.items.." items");y=y+24
+   if #tab.items==0 then listRow(y,"|cff888888This tab is empty.|r","");y=y+24 end
+   for i,it in ipairs(tab.items)do
+    shown=shown+1;local s=slot(shown);s.item=it
+    s:ClearAllPoints();s:SetPoint("TOPLEFT",left+((i-1)%cols)*(SIZE+GAP),-(y+math.floor((i-1)/cols)*(SIZE+GAP)))
+    s.icon:SetTexture(R.ItemIcon(it.id))
+    s.count:SetText(it.count>1 and(it.count>9999 and math.floor(it.count/1000).."k"or it.count)or"")
+    local q=quality(it);local color=q and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+    if color and q>=2 then s.border:SetVertexColor(color.r,color.g,color.b);s.border:Show()else s.border:Hide()end
+    s.check:SetShown(inBasket(it.id)~=nil)
+    s:Show()
+   end
+   y=y+math.ceil(#tab.items/cols)*(SIZE+GAP)+8
+  end
+  local requests={}
+  for _,req in ipairs(R.List())do if req.prof==R.BANK then requests[#requests+1]=req end end
+  listRow(y,gold("OPEN GUILD BANK REQUESTS"),tostring(#requests));y=y+24
+  if #requests==0 then listRow(y,"|cff888888No open requests. Click an item to ask for it.|r","");y=y+24 end
+  for _,req in ipairs(requests)do
+   local owner=N.members[req.owner];local id=req.id
+   local top="|cff"..N.ClassColor(owner)..plain(R.Short(req.owner)).."|r   "..gold(plain(R.Title(req))).."   |cff888888"..R.Age(req).."|r"..(R.Done(req)and"   |cff40d040covered|r"or"")
+   listRow(y,top.."\n|cffbbbbbb"..plain(R.Summary(req,3)).."|r",R.LeftText(req),nil,function()N.ShowNeedsPage(id)end,nil,36);y=y+38
+  end
+  local lines={}
+  if #basket>0 then
+   lines[#lines+1]=gold("YOUR REQUEST")
+   for _,b in ipairs(basket)do lines[#lines+1]="|T"..R.ItemIcon(b.id)..":14|t "..plain(R.ItemName(b.id)).."  x"..b.count end
+   lines[#lines+1]="Press Send request below. Right-click an item to remove it.\n"
+  end
+  lines[#lines+1]=gold("GUILD BANK GOLD").."\n"..B.MoneyText(v.money).."\n"
+  lines[#lines+1]=gold("LEDGER")
+  for _,e in ipairs(v.ledger or{})do lines[#lines+1]=B.LedgerLine(e,function(id)return plain(R.ItemName(id))end)end
+  if #(v.ledger or{})==0 then lines[#lines+1]="No deposits or withdrawals yet."end
+  showDetail(table.concat(lines,"\n"))
+  action(1,"Request gold",requestGold)
+  if #basket>0 then
+   action(2,"Send request ("..#basket..")",sendBasket)
+   action(3,"Clear picks",function()basket={};N.Render()end)
+  end
+  action(4,"All requests",function()selectPage("Requests")end)
+  return y
+ end
+end
 function N.Render()
  N.RestoreUIPositions()
  if not window:IsShown() then return end
@@ -1017,7 +1169,7 @@ function N.Render()
  orders:Hide()
  for _,r in ipairs(rows) do r:Hide() end
  for _,b in pairs(actions) do b:Hide() end
- N.UpdatePointsControls()
+ N.UpdatePointsControls();N.HideBankPage()
  for _,card in ipairs(pollCards)do card:Hide()end
  local officer=N.IsOfficer(N.Me()); local gm=N.IsGM()
  if not officer or N.page~="Guild polls" or not N.db then creator:Hide()end
@@ -1183,7 +1335,7 @@ function N.Render()
    local tracking,age;if N.Tracking then tracking,age=N.Tracking.GetStatus(m.name)end
    if tracking then lines[#lines+1]="Location sharing: "..tracking..(age and" ("..math.floor(age).."s ago)"or"")end
    local position=livePosition(m.name);if position then lines[#lines+1]="Live position: "..liveLine(position)end
-   showDetail(table.concat(lines,"\n"));N.UpdatePointsControls(m)
+   N.UpdatePointsControls(m);showDetail(table.concat(lines,"\n"))
    if tracking=="Live"and N.LiveMap then action(4,"Show on map",function()N.LiveMap.ShowMember(m.name)end)end
    local me=N.members[N.Me()]
    if officer and me and me.index<m.index then
@@ -1250,8 +1402,7 @@ function N.Render()
  elseif N.page=="Requests" then
   y=N.RenderNeedsPage(y)
  elseif N.page=="Guild bank" then
-  columnLabels[1]:SetText("Guild bank records"); y=textBlock(N.Bank())
-  showDetail("Availability depends on your realm and guild permissions.\nVisit the guild bank to load accessible records.")
+  y=N.RenderBankPage(y)
  elseif N.page=="Guild polls" then
   columnLabels[1]:SetText("Guild polls - in-game only")
   local active,all;y,active,all=renderPollCards(officer);sub:SetText(active.." active - "..all.." polls - votes received locally")

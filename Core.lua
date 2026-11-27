@@ -504,6 +504,7 @@ function N.Receive(prefix,msg,channel,sender)
  elseif op=="D1"or op=="DJ"or op=="DX"then if N.Groups then N.Groups.Receive(op,p,sender)end
  elseif op=="N1"or op=="N2"or op=="N3"or op=="NX"or op=="NG"or op=="NQ"then if N.Needs then N.Needs.Receive(op,p,sender)end
  elseif op=="S1"or op=="SS"or op=="SQ"then if N.Points then N.Points.Receive(op,p,sender)end
+ elseif op=="B1"or op=="B2"or op=="B3"or op=="BQ"then if N.BankData then N.BankData.Receive(op,p,sender)end
  elseif op=="P2" or op=="O2" or op=="V2" or op=="C2" then receivePoll(op,p,sender)
  elseif op=="V" and #p==3 then
   local poll=N.db.polls[p[2]]; local choice=tonumber(p[3])
@@ -542,25 +543,8 @@ function N.ChatEvent(channel,message,sender,...)
  if N.Render then N.Render() end
  return true
 end
-function N.Bank()
- if C_GuildBank and C_GuildBank.IsGuildBankEnabled and not C_GuildBank.IsGuildBankEnabled() then return "Guild bank is not currently available on this realm." end
- if not GetNumGuildBankTabs or not GetNumGuildBankTransactions then return "Guild bank is not currently available in this client." end
- if not N.bankOpen then return "Visit the guild bank to load the records you have permission to view." end
- local lines={}
- for tab=1,GetNumGuildBankTabs() do
-  local name,_,viewable=GetGuildBankTabInfo(tab)
-  if viewable then
-   lines[#lines+1]="|cffd4af68"..N.Safe(name).."|r"
-   for i=1,GetNumGuildBankTransactions(tab) do
-    local kind,who,item,count=GetGuildBankTransaction(tab,i)
-    lines[#lines+1]=N.Safe(who).."  "..N.Safe(kind).."  "..N.Safe(item).." x"..tostring(count or 1)
-   end
-  end
- end
- return #lines>0 and table.concat(lines,"\n\n") or "No accessible bank records returned yet."
-end
 local events=CreateFrame("Frame")
-for _,event in ipairs({"ADDON_LOADED","PLAYER_LOGIN","PLAYER_LOGOUT","PLAYER_GUILD_UPDATE","GUILD_ROSTER_UPDATE","GUILD_MOTD","CHAT_MSG_GUILD","CHAT_MSG_OFFICER","CHAT_MSG_ADDON","GUILDBANKFRAME_OPENED","GUILDBANKFRAME_CLOSED","GUILDBANKLOG_UPDATE"}) do pcall(events.RegisterEvent,events,event) end
+for _,event in ipairs({"ADDON_LOADED","PLAYER_LOGIN","PLAYER_LOGOUT","PLAYER_GUILD_UPDATE","GUILD_ROSTER_UPDATE","GUILD_MOTD","CHAT_MSG_GUILD","CHAT_MSG_OFFICER","CHAT_MSG_ADDON"}) do pcall(events.RegisterEvent,events,event) end
 events:SetScript("OnEvent",function(_,event,...)
  if event=="ADDON_LOADED" then
   if (...)~="NO_DRAMA" then return end
@@ -580,10 +564,7 @@ events:SetScript("OnEvent",function(_,event,...)
  elseif event=="CHAT_MSG_GUILD" then N.ChatEvent("GUILD",...)
  elseif event=="CHAT_MSG_OFFICER" then N.ChatEvent("OFFICER",...)
  elseif event=="CHAT_MSG_ADDON" then N.Receive(...);return
- elseif event=="GUILDBANKFRAME_OPENED" then
-  N.bankOpen=true
-  if QueryGuildBankLog and GetNumGuildBankTabs then for tab=1,GetNumGuildBankTabs() do QueryGuildBankLog(tab) end end
- elseif event=="GUILDBANKFRAME_CLOSED" then N.bankOpen=false end
+ end
  if N.Tracking then N.Tracking.OnScopeChanged()end
  if N.Render then N.Render() end
 end)

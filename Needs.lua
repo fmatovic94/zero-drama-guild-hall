@@ -6,7 +6,8 @@ local R={};N.Needs=R
 local EXPIRY=3*24*60*60
 local MAX_ITEMS,MAX_OPEN,MAX_GOLD,MAX_COUNT=8,3,10000,1000
 R.professions={"Alchemy","Blacksmithing","Enchanting","Engineering","Leatherworking","Tailoring","Cooking","First Aid","Other"}
-local isProfession={};for _,p in ipairs(R.professions)do isProfession[p]=true end
+R.BANK="Guild bank"
+local isProfession={[R.BANK]=true};for _,p in ipairs(R.professions)do isProfession[p]=true end
 local COIN="Interface\\Icons\\INV_Misc_Coin_01"
 
 local function store()
@@ -21,6 +22,10 @@ local function settings()
 end
 local function short(name)return(name or""):match("^[^-]+")or name or""end
 R.Short=short
+function R.Title(req)
+ if req.prof==R.BANK then return req.kind=="gold"and"Guild bank gold"or"Guild bank items"end
+ return req.kind=="gold"and"Gold"or req.prof
+end
 R.Settings=settings
 local function itemID(text)
  if type(text)~="string"then return nil end
@@ -139,7 +144,7 @@ function R.Post(kind,prof,items,goldAmount,reason)
   goldAmount=tonumber(goldAmount)
   if not goldAmount or goldAmount<1 or goldAmount>MAX_GOLD then return false,"Enter an amount from 1 to "..MAX_GOLD.." gold."end
   if reason==""then return false,"Say what the gold is for, for example: first mount."end
-  goldAmount=math.floor(goldAmount);prof=""
+  goldAmount=math.floor(goldAmount);prof=prof==R.BANK and R.BANK or""
  else return false,"Choose profession mats or gold."end
  local me=N.Me();local mine={}
  for _,req in ipairs(R.List())do if req.owner==me then mine[#mine+1]=req end end
@@ -195,7 +200,8 @@ local function publish(id)
  s[id]=req;pending[id]=nil
  -- Re-announced old requests arrive in a burst at login; only fresh ones notify.
  if not old and p.owner~=N.Me()and time()-h.stamp<600 then
-  N.Notify(N.Safe(short(p.owner)).." needs "..(h.kind=="gold"and h.gold.." gold"or h.prof.." mats")..". See the guild needs window or /zd.")
+  local what=h.prof==R.BANK and(h.kind=="gold"and h.gold.." gold"or"items").." from the guild bank"or(h.kind=="gold"and h.gold.." gold"or h.prof.." mats")
+  N.Notify(N.Safe(short(p.owner)).." needs "..what..". See the guild needs window or /zd.")
  end
  R.Changed()
 end
@@ -216,7 +222,7 @@ function R.Receive(op,p,sender)
   local stamp=number(p[2]:match(":(%d+):%d+$"),0,math.huge)
   if not goldAmount or not given or not count or not stamp then return end
   if kind=="mats"then if not isProfession[prof]or count<1 then return end
-  elseif kind=="gold"then if goldAmount<1 or count~=0 then return end;prof=""
+  elseif kind=="gold"then if goldAmount<1 or count~=0 then return end;prof=prof==R.BANK and R.BANK or""
   else return end
   local pend=pendingFor(p[2],sender);if not pend then return end
   pend.header={kind=kind,prof=prof,gold=goldAmount,given=math.min(given,goldAmount),reason=N.Clip(N.Safe(p[7]),80),count=count,stamp=stamp}
@@ -520,7 +526,7 @@ local function trackerRow(i)
  end)
  r:SetScript("OnEnter",function(self)
   local s=store();local req=s and self.id and s[self.id];if not req then return end
-  GameTooltip:SetOwner(self,"ANCHOR_LEFT");GameTooltip:SetText(N.Safe(short(req.owner)).." - "..(req.kind=="gold"and"Gold"or req.prof),1,0.82,0)
+  GameTooltip:SetOwner(self,"ANCHOR_LEFT");GameTooltip:SetText(N.Safe(short(req.owner)).." - "..R.Title(req),1,0.82,0)
   if req.reason~=""then GameTooltip:AddLine("\""..req.reason.."\"",1,1,1,true)end
   GameTooltip:AddLine(R.Summary(req),0.9,0.9,0.9,true)
   GameTooltip:AddLine("Click: open details (at a mailbox: fill in the mail and attach the mats)",0.6,0.6,0.6)
@@ -554,7 +560,7 @@ function R.UpdateTracker()
   for i=1,math.min(#open,MAX_ROWS)do
    local req=open[i];local r=trackerRow(i);r.id=req.id
    local owner=N.members[req.owner]
-   r.title:SetText("|cff"..N.ClassColor(owner)..N.Safe(short(req.owner)).."|r  "..(req.kind=="gold"and"|cffffd100Gold|r"or req.prof)..(req.owner==me and"  |cff888888(you)|r"or""))
+   r.title:SetText("|cff"..N.ClassColor(owner)..N.Safe(short(req.owner)).."|r  "..(req.kind=="gold"and"|cffffd100"..R.Title(req).."|r"or R.Title(req))..(req.owner==me and"  |cff888888(you)|r"or""))
    for _,b in ipairs(r.icons)do b:Hide();b.id=nil end
    if req.kind=="gold"then
     local b=r.icons[1];b.tex:SetTexture(COIN);b.count:SetText("");b:Show()

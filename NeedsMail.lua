@@ -102,7 +102,7 @@ function R.FillMail(req)
  for i=1,maxAttachments()do if GetSendMailItem(i)then pcall(ClickSendMailItemButton,i,true)end end
  if _G.SendMailNameEditBox then _G.SendMailNameEditBox:SetText(short(req.owner))end
  if _G.SendMailSubjectEditBox then
-  _G.SendMailSubjectEditBox:SetText(req.kind=="gold"and"Gold from ZERO DRAMA"or req.prof.." mats from ZERO DRAMA")
+  _G.SendMailSubjectEditBox:SetText(req.prof==R.BANK and R.Title(req).." from ZERO DRAMA"or(req.kind=="gold"and"Gold from ZERO DRAMA"or req.prof.." mats from ZERO DRAMA"))
  end
  if _G.SendMailBodyEditBox then
   _G.SendMailBodyEditBox:SetText("For your request"..(req.reason~=""and": "..req.reason or"")..". From "..N.Safe(short(N.Me())).." via ZERO DRAMA Guild Needs.")
@@ -180,7 +180,7 @@ local function row(i)
  r:EnableMouse(true)
  r:SetScript("OnEnter",function(self)
   local req=self.req;if not req then return end
-  GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText(N.Safe(short(req.owner)).." - "..(req.kind=="gold"and"Gold"or req.prof),1,0.82,0)
+  GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText(N.Safe(short(req.owner)).." - "..R.Title(req),1,0.82,0)
   if req.reason~=""then GameTooltip:AddLine("\""..req.reason.."\"",1,1,1,true)end
   if req.kind=="gold"then GameTooltip:AddLine(R.Remaining(req).."g still needed",1,1,1)
   else
@@ -209,7 +209,7 @@ function R.UpdateMailPanel()
  for i=1,math.min(#list,MAX_ROWS)do
   local req=list[i];local r=row(i);r.req=req
   local owner=N.members[req.owner]
-  r.title:SetText("|cff"..N.ClassColor(owner)..N.Safe(short(req.owner)).."|r  "..(req.kind=="gold"and"|cffffd100Gold|r"or req.prof))
+  r.title:SetText("|cff"..N.ClassColor(owner)..N.Safe(short(req.owner)).."|r  "..(req.kind=="gold"and"|cffffd100"..R.Title(req).."|r"or R.Title(req)))
   local give=canGive(req)
   if req.kind=="gold"then
    r.icon:SetTexture(COIN);r.line:SetText(R.Remaining(req).."g"..(req.reason~=""and" - "..req.reason or""))
