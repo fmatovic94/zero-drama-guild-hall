@@ -1486,6 +1486,8 @@ function N.Render()
  elseif N.page=="Requests" then
   y=N.RenderNeedsPage(y)
  elseif N.page=="Kill list" then
+  y=N.RenderWantedPage(y)
+ elseif N.page=="Guild bank" then
   y=N.RenderBankPage(y)
  elseif N.page=="Guild polls" then
   columnLabels[1]:SetText("Guild polls - in-game only")
